@@ -121,62 +121,103 @@ elif [ "$MODE" == "run" ]; then
         --time=$INTERACTIVE_RUN_TIME \
         --job-name=npmle_interactive \
         --pty \
-        bash -c "
+        bash -c '
             # Create output directory and log file
-            mkdir -p $OUTPUT_DIR
-            LOG_FILE=$LOG_FILE
+            mkdir -p '"$OUTPUT_DIR"'
+            LOG_FILE='"$LOG_FILE"'
 
             # Logging function
             log_msg() {
-                echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] \$1\" | tee -a \$LOG_FILE
+                echo "[$(date '\''+%Y-%m-%d %H:%M:%S'\'')] $1" | tee -a $LOG_FILE
             }
 
-            log_msg '=============================================='
-            log_msg 'NPMLE Interactive Experiment'
-            log_msg '=============================================='
-            log_msg 'Node: '\$(hostname)
-            log_msg 'Output directory: $OUTPUT_DIR'
-            log_msg ''
+            log_msg "=============================================="
+            log_msg "NPMLE Interactive Experiment"
+            log_msg "=============================================="
+            log_msg "Node: $(hostname)"
+            log_msg "Output directory: '"$OUTPUT_DIR"'"
+            log_msg ""
 
-            cd $SCRIPT_DIR
+            cd '"$SCRIPT_DIR"'
 
-            log_msg 'Loading miniforge module...'
-            module load miniforge 2>&1 | tee -a \$LOG_FILE
+            log_msg "Loading miniforge module..."
+            module load miniforge 2>&1 | tee -a $LOG_FILE
 
-            log_msg 'Activating conda environment: $CONDA_ENV'
-            source $CONDA_PATH/etc/profile.d/conda.sh
-            conda activate $CONDA_ENV
+            # Initialize conda - try multiple methods
+            log_msg "Initializing conda..."
+            CONDA_FOUND=0
 
-            log_msg 'Installing/upgrading packages...'
-            pip install --upgrade $PIP_PACKAGES 2>&1 | tee -a \$LOG_FILE
+            # Method 1: Use MAMBA_ROOT_PREFIX set by module load miniforge
+            if [ -n "$MAMBA_ROOT_PREFIX" ] && [ -f "$MAMBA_ROOT_PREFIX/etc/profile.d/conda.sh" ]; then
+                log_msg "Found conda via MAMBA_ROOT_PREFIX: $MAMBA_ROOT_PREFIX"
+                source "$MAMBA_ROOT_PREFIX/etc/profile.d/conda.sh"
+                CONDA_FOUND=1
+            # Method 2: Check if conda is already in PATH
+            elif command -v conda &> /dev/null; then
+                log_msg "Found conda in PATH"
+                eval "$(conda shell.bash hook)"
+                CONDA_FOUND=1
+            # Method 3: Try CONDA_PATH from config
+            elif [ -f "'"$CONDA_PATH"'/etc/profile.d/conda.sh" ]; then
+                log_msg "Found conda at CONDA_PATH: '"$CONDA_PATH"'"
+                source "'"$CONDA_PATH"'/etc/profile.d/conda.sh"
+                CONDA_FOUND=1
+            # Method 4: Try common locations
+            elif [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
+                log_msg "Found conda at $HOME/miniforge3"
+                source "$HOME/miniforge3/etc/profile.d/conda.sh"
+                CONDA_FOUND=1
+            elif [ -f "$HOME/.conda/etc/profile.d/conda.sh" ]; then
+                log_msg "Found conda at $HOME/.conda"
+                source "$HOME/.conda/etc/profile.d/conda.sh"
+                CONDA_FOUND=1
+            fi
 
-            log_msg ''
-            log_msg 'Starting experiment...'
-            log_msg ''
+            if [ $CONDA_FOUND -eq 0 ]; then
+                log_msg "ERROR: Could not find conda installation"
+                exit 1
+            fi
+
+            log_msg "Activating conda environment: '"$CONDA_ENV"'"
+            conda activate '"$CONDA_ENV"' || { log_msg "ERROR: Failed to activate '"$CONDA_ENV"'"; exit 1; }
+
+            # Verify python is available
+            if ! command -v python &> /dev/null; then
+                log_msg "ERROR: python not found after activating conda"
+                exit 1
+            fi
+            log_msg "Python: $(which python)"
+
+            log_msg "Installing/upgrading packages..."
+            pip install --upgrade '"$PIP_PACKAGES"' 2>&1 | tee -a $LOG_FILE
+
+            log_msg ""
+            log_msg "Starting experiment..."
+            log_msg ""
 
             python npmle_tests_parallel.py \
-                --n-workers $N_WORKERS \
-                --n-sims $N_SIMS \
-                --n-points $N_POINTS \
-                --n-min $N_MIN \
-                --n-max $N_MAX \
-                --output-dir $OUTPUT_DIR \
-                --experiment $EXPERIMENT \
-                --true-mu $TRUE_MU \
-                --sos-si-min $SOS_SI_MIN \
-                --sos-si-max $SOS_SI_MAX \
-                --sos-B $SOS_B \
-                --sos-mu0 $SOS_MU0 \
-                --sos-m-power $SOS_M_POWER \
-                --tpt-prior-atoms $TPT_PRIOR_ATOMS \
-                --tpt-prior-weights $TPT_PRIOR_WEIGHTS \
-                --tpt-weight-power $TPT_WEIGHT_POWER \
-                --tpt-si-min $TPT_SI_MIN \
-                --tpt-si-max $TPT_SI_MAX \
-                2>&1 | tee -a \$LOG_FILE
+                --n-workers '"$N_WORKERS"' \
+                --n-sims '"$N_SIMS"' \
+                --n-points '"$N_POINTS"' \
+                --n-min '"$N_MIN"' \
+                --n-max '"$N_MAX"' \
+                --output-dir '"$OUTPUT_DIR"' \
+                --experiment '"$EXPERIMENT"' \
+                --true-mu '"$TRUE_MU"' \
+                --sos-si-min '"$SOS_SI_MIN"' \
+                --sos-si-max '"$SOS_SI_MAX"' \
+                --sos-B '"$SOS_B"' \
+                --sos-mu0 '"$SOS_MU0"' \
+                --sos-m-power '"$SOS_M_POWER"' \
+                --tpt-prior-atoms '"$TPT_PRIOR_ATOMS"' \
+                --tpt-prior-weights '"$TPT_PRIOR_WEIGHTS"' \
+                --tpt-weight-power '"$TPT_WEIGHT_POWER"' \
+                --tpt-si-min '"$TPT_SI_MIN"' \
+                --tpt-si-max '"$TPT_SI_MAX"' \
+                2>&1 | tee -a $LOG_FILE
 
-            log_msg ''
-            log_msg 'Experiment completed!'
-            log_msg 'Results in: $OUTPUT_DIR'
-        "
+            log_msg ""
+            log_msg "Experiment completed!"
+            log_msg "Results in: '"$OUTPUT_DIR"'"
+        '
 fi
