@@ -97,7 +97,17 @@ elif [ "$MODE" == "python" ]; then
         "
 
 elif [ "$MODE" == "run" ]; then
+    # Generate output directory name with timestamp (before srun so we can reference it)
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    OUTPUT_DIR="$BASE_DIR/results_interactive_${TIMESTAMP}"
+    LOG_FILE="${OUTPUT_DIR}/interactive_session.log"
+
     echo "Will run experiment interactively..."
+    echo "=============================================="
+    echo "Output directory: $OUTPUT_DIR"
+    echo "Log file: $LOG_FILE"
+    echo ""
+    echo "To monitor: tail -f $LOG_FILE"
     echo "=============================================="
     echo ""
 
@@ -112,21 +122,45 @@ elif [ "$MODE" == "run" ]; then
         --job-name=npmle_interactive \
         --pty \
         bash -c "
+            # Create output directory and log file
+            mkdir -p $OUTPUT_DIR
+            LOG_FILE=$LOG_FILE
+
+            # Logging function
+            log_msg() {
+                echo \"[\$(date '+%Y-%m-%d %H:%M:%S')] \$1\" | tee -a \$LOG_FILE
+            }
+
+            log_msg '=============================================='
+            log_msg 'NPMLE Interactive Experiment'
+            log_msg '=============================================='
+            log_msg 'Node: '\$(hostname)
+            log_msg 'Output directory: $OUTPUT_DIR'
+            log_msg ''
+
             cd $SCRIPT_DIR
-            module load miniforge
+
+            log_msg 'Loading miniforge module...'
+            module load miniforge 2>&1 | tee -a \$LOG_FILE
+
+            log_msg 'Activating conda environment: $CONDA_ENV'
             source $CONDA_PATH/etc/profile.d/conda.sh
             conda activate $CONDA_ENV
-            pip install --upgrade $PIP_PACKAGES
-            echo ''
-            echo 'Running experiment...'
-            echo ''
+
+            log_msg 'Installing/upgrading packages...'
+            pip install --upgrade $PIP_PACKAGES 2>&1 | tee -a \$LOG_FILE
+
+            log_msg ''
+            log_msg 'Starting experiment...'
+            log_msg ''
+
             python npmle_tests_parallel.py \
                 --n-workers $N_WORKERS \
                 --n-sims $N_SIMS \
                 --n-points $N_POINTS \
                 --n-min $N_MIN \
                 --n-max $N_MAX \
-                --output-dir $BASE_DIR/results_interactive_\$(date +%Y%m%d_%H%M%S) \
+                --output-dir $OUTPUT_DIR \
                 --experiment $EXPERIMENT \
                 --true-mu $TRUE_MU \
                 --sos-si-min $SOS_SI_MIN \
@@ -138,6 +172,11 @@ elif [ "$MODE" == "run" ]; then
                 --tpt-prior-weights $TPT_PRIOR_WEIGHTS \
                 --tpt-weight-power $TPT_WEIGHT_POWER \
                 --tpt-si-min $TPT_SI_MIN \
-                --tpt-si-max $TPT_SI_MAX
+                --tpt-si-max $TPT_SI_MAX \
+                2>&1 | tee -a \$LOG_FILE
+
+            log_msg ''
+            log_msg 'Experiment completed!'
+            log_msg 'Results in: $OUTPUT_DIR'
         "
 fi

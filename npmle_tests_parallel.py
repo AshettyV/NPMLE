@@ -11,6 +11,9 @@ import math
 import pickle
 import argparse
 import os
+import sys
+import logging
+from datetime import datetime
 from scipy import stats, optimize as opt
 from scipy.stats import norm, poisson, gaussian_kde
 from scipy.optimize import root_scalar
@@ -18,6 +21,50 @@ from collections import Counter
 from multiprocessing import Pool, cpu_count
 from functools import partial
 import time
+
+
+# =============================================================================
+# LOGGING SETUP
+# =============================================================================
+
+def setup_logging(output_dir, log_to_file=True):
+    """Setup logging to both console and file"""
+    # Create logger
+    logger = logging.getLogger('npmle')
+    logger.setLevel(logging.INFO)
+    logger.handlers = []  # Clear any existing handlers
+
+    # Console handler with simpler format
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_format = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%H:%M:%S')
+    console_handler.setFormatter(console_format)
+    logger.addHandler(console_handler)
+
+    # File handler with detailed format
+    if log_to_file and output_dir:
+        log_file = os.path.join(output_dir, 'experiment_progress.log')
+        file_handler = logging.FileHandler(log_file, mode='w')
+        file_handler.setLevel(logging.INFO)
+        file_format = logging.Formatter('[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+        file_handler.setFormatter(file_format)
+        logger.addHandler(file_handler)
+        logger.info(f"Logging to: {log_file}")
+
+    return logger
+
+
+# Global logger (initialized in main)
+logger = None
+
+
+def log(msg):
+    """Log a message to both console and file"""
+    global logger
+    if logger:
+        logger.info(msg)
+    else:
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
 # Suppress matplotlib GUI backend for headless execution
 import matplotlib
@@ -488,13 +535,14 @@ def compute_stats(results_dict, n_values):
 
 def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_power, n_workers, output_dir):
     """Run Subset-of-Signals experiment with parallel processing"""
-    print("=" * 60)
-    print("EXPERIMENT 1: Subset-of-Signals Prior")
-    print("=" * 60)
-    print(f"n values: {n_values}")
-    print(f"Simulations per n: {n_sims}")
-    print(f"Using {n_workers} workers")
-    print("=" * 60)
+    log("=" * 60)
+    log("EXPERIMENT 1: Subset-of-Signals Prior")
+    log("=" * 60)
+    log(f"n values: {n_values}")
+    log(f"Simulations per n: {n_sims}")
+    log(f"Using {n_workers} workers")
+    log(f"Parameters: si_min={si_min}, si_max={si_max}, B={B}, mu0={mu0}, m_power={m_power}")
+    log("=" * 60)
 
     # Prepare all simulation arguments
     all_args = []
@@ -504,15 +552,32 @@ def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_powe
             seed = base_seed + n * n_sims + s
             all_args.append((s, n, true_mu, si_min, si_max, B, mu0, m_power, seed))
 
-    print(f"Total simulations to run: {len(all_args)}")
+    total_sims = len(all_args)
+    log(f"Total simulations to run: {total_sims}")
 
-    # Run in parallel
+    # Run in parallel with progress tracking
     start_time = time.time()
-    with Pool(n_workers) as pool:
-        results = list(pool.imap_unordered(run_single_simulation_sos, all_args))
-    elapsed = time.time() - start_time
+    results = []
+    completed = 0
+    last_progress = 0
 
-    print(f"\nCompleted {len(results)} simulations in {elapsed:.2f} seconds")
+    with Pool(n_workers) as pool:
+        for result in pool.imap_unordered(run_single_simulation_sos, all_args):
+            results.append(result)
+            completed += 1
+
+            # Log progress every 10% or at key milestones
+            progress = int(100 * completed / total_sims)
+            if progress >= last_progress + 10 or completed == total_sims:
+                elapsed_so_far = time.time() - start_time
+                rate = completed / elapsed_so_far if elapsed_so_far > 0 else 0
+                eta = (total_sims - completed) / rate if rate > 0 else 0
+                log(f"Progress: {completed}/{total_sims} ({progress}%) | "
+                    f"Rate: {rate:.1f} sims/sec | ETA: {eta:.0f}s")
+                last_progress = progress
+
+    elapsed = time.time() - start_time
+    log(f"Completed {len(results)} simulations in {elapsed:.2f} seconds ({len(results)/elapsed:.1f} sims/sec)")
 
     # Organize results
     results_median = {n: [] for n in n_values}
@@ -556,7 +621,13 @@ def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_powe
     results_file = os.path.join(output_dir, 'experiment1_sos_results.pkl')
     with open(results_file, 'wb') as f:
         pickle.dump(results_data, f)
-    print(f"Results saved to {results_file}")
+    log(f"Results saved to {results_file}")
+
+    # Log summary statistics
+    log(f"Summary - Mean errors at largest n={n_values[-1]}:")
+    log(f"  Median: {median_means[-1]:.6f} +/- {median_stds[-1]:.6f}")
+    log(f"  Truncation: {trunc_means[-1]:.6f} +/- {trunc_stds[-1]:.6f}")
+    log(f"  NPMLE: {npmle_means[-1]:.6f} +/- {npmle_stds[-1]:.6f}")
 
     # Create plot
     create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds,
@@ -568,16 +639,17 @@ def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_powe
 def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
                        weight_power, si_min, si_max, n_workers, output_dir):
     """Run Two-Point Prior experiment with parallel processing"""
-    print("\n" + "=" * 60)
-    print("EXPERIMENT 2: Two-Point Prior (MLE vs NPMLE)")
-    print("=" * 60)
-    print(f"Prior atoms: {prior_atoms}, weights: {prior_weights}")
+    log("\n" + "=" * 60)
+    log("EXPERIMENT 2: Two-Point Prior (MLE vs NPMLE)")
+    log("=" * 60)
+    log(f"Prior atoms: {prior_atoms}, weights: {prior_weights}")
     if weight_power > 0:
-        print(f"Dynamic weights: w1 = n^(-{weight_power}), w2 = 1 - w1")
-    print(f"n values: {n_values}")
-    print(f"Simulations per n: {n_sims}")
-    print(f"Using {n_workers} workers")
-    print("=" * 60)
+        log(f"Dynamic weights: w1 = n^(-{weight_power}), w2 = 1 - w1")
+    log(f"n values: {n_values}")
+    log(f"Simulations per n: {n_sims}")
+    log(f"Using {n_workers} workers")
+    log(f"NPMLE search range: [{si_min}, {si_max}]")
+    log("=" * 60)
 
     # Prepare all simulation arguments
     all_args = []
@@ -587,15 +659,32 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
             seed = base_seed + n * n_sims + s
             all_args.append((s, n, true_mu, prior_atoms, prior_weights, weight_power, si_min, si_max, seed))
 
-    print(f"Total simulations to run: {len(all_args)}")
+    total_sims = len(all_args)
+    log(f"Total simulations to run: {total_sims}")
 
-    # Run in parallel
+    # Run in parallel with progress tracking
     start_time = time.time()
-    with Pool(n_workers) as pool:
-        results = list(pool.imap_unordered(run_single_simulation_2pt, all_args))
-    elapsed = time.time() - start_time
+    results = []
+    completed = 0
+    last_progress = 0
 
-    print(f"\nCompleted {len(results)} simulations in {elapsed:.2f} seconds")
+    with Pool(n_workers) as pool:
+        for result in pool.imap_unordered(run_single_simulation_2pt, all_args):
+            results.append(result)
+            completed += 1
+
+            # Log progress every 10% or at key milestones
+            progress = int(100 * completed / total_sims)
+            if progress >= last_progress + 10 or completed == total_sims:
+                elapsed_so_far = time.time() - start_time
+                rate = completed / elapsed_so_far if elapsed_so_far > 0 else 0
+                eta = (total_sims - completed) / rate if rate > 0 else 0
+                log(f"Progress: {completed}/{total_sims} ({progress}%) | "
+                    f"Rate: {rate:.1f} sims/sec | ETA: {eta:.0f}s")
+                last_progress = progress
+
+    elapsed = time.time() - start_time
+    log(f"Completed {len(results)} simulations in {elapsed:.2f} seconds ({len(results)/elapsed:.1f} sims/sec)")
 
     # Organize results
     results_mle_known = {n: [] for n in n_values}
@@ -633,7 +722,12 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
     results_file = os.path.join(output_dir, 'experiment2_2pt_results.pkl')
     with open(results_file, 'wb') as f:
         pickle.dump(results_data, f)
-    print(f"Results saved to {results_file}")
+    log(f"Results saved to {results_file}")
+
+    # Log summary statistics
+    log(f"Summary - Mean errors at largest n={n_values[-1]}:")
+    log(f"  MLE (known G): {mle_known_means[-1]:.6f} +/- {mle_known_stds[-1]:.6f}")
+    log(f"  NPMLE: {npmle_means[-1]:.6f} +/- {npmle_stds[-1]:.6f}")
 
     # Create plot
     create_plot_2pt(n_values, mle_known_means, mle_known_stds, npmle_means, npmle_stds,
@@ -693,7 +787,7 @@ def create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds
     plot_file = os.path.join(output_dir, 'experiment1_sos_comparison.png')
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"Plot saved to {plot_file}")
+    log(f"Plot saved to {plot_file}")
 
 
 def create_plot_2pt(n_values, mle_means, mle_stds, npmle_means, npmle_stds,
@@ -744,7 +838,7 @@ def create_plot_2pt(n_values, mle_means, mle_stds, npmle_means, npmle_stds,
     plot_file = os.path.join(output_dir, 'experiment2_mle_vs_npmle.png')
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"Plot saved to {plot_file}")
+    log(f"Plot saved to {plot_file}")
 
 
 def main():
@@ -801,20 +895,32 @@ def main():
     else:
         n_workers = min(args.n_workers, cpu_count())
 
-    print(f"NPMLE Tests - Parallelized Version")
-    print(f"Available CPUs: {cpu_count()}")
-    print(f"Using {n_workers} workers")
-    print(f"True mu: {args.true_mu}")
-
-    # Create output directory
+    # Create output directory first (needed for log file)
     os.makedirs(args.output_dir, exist_ok=True)
+
+    # Setup logging
+    global logger
+    logger = setup_logging(args.output_dir, log_to_file=True)
+
+    log("=" * 60)
+    log("NPMLE Tests - Parallelized Version")
+    log("=" * 60)
+    log(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log(f"Output directory: {args.output_dir}")
+    log(f"Available CPUs: {cpu_count()}")
+    log(f"Using {n_workers} workers")
+    log(f"True mu: {args.true_mu}")
+    log(f"Experiment type: {args.experiment}")
+    log(f"n values: {args.n_points} points from 10^{args.n_min} to 10^{args.n_max}")
+    log(f"Simulations per n: {args.n_sims}")
 
     # Define n values
     n_values = np.logspace(args.n_min, args.n_max, args.n_points).astype(int)
 
+    overall_start = time.time()
+
     # Experiment 1: Subset-of-Signals
     if args.experiment in ['sos', 'both']:
-        print(f"\nSOS Parameters: si_min={args.sos_si_min}, si_max={args.sos_si_max}, B={args.sos_B}, mu0={args.sos_mu0}, m_power={args.sos_m_power}")
         run_experiment_sos(n_values, args.n_sims, args.true_mu, args.sos_si_min, args.sos_si_max,
                           args.sos_B, args.sos_mu0, args.sos_m_power, n_workers, args.output_dir)
 
@@ -822,14 +928,19 @@ def main():
     if args.experiment in ['2pt', 'both']:
         prior_atoms = np.array(args.tpt_prior_atoms)
         prior_weights = np.array(args.tpt_prior_weights)
-        print(f"\nTwo-Point Parameters: atoms={prior_atoms}, weights={prior_weights}, weight_power={args.tpt_weight_power}, si_min={args.tpt_si_min}, si_max={args.tpt_si_max}")
         run_experiment_2pt(n_values, args.n_sims, args.true_mu, prior_atoms, prior_weights,
                           args.tpt_weight_power, args.tpt_si_min, args.tpt_si_max, n_workers, args.output_dir)
 
-    print("\n" + "=" * 60)
-    print("All experiments completed!")
-    print(f"Results saved to {args.output_dir}")
-    print("=" * 60)
+    overall_elapsed = time.time() - overall_start
+    hours, remainder = divmod(int(overall_elapsed), 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    log("\n" + "=" * 60)
+    log("All experiments completed!")
+    log(f"Total runtime: {hours}h {minutes}m {seconds}s")
+    log(f"Results saved to {args.output_dir}")
+    log(f"End time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log("=" * 60)
 
 
 if __name__ == '__main__':
