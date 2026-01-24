@@ -60,6 +60,7 @@ export SOS_SI_MIN=$(yaml_get "si_min" | head -1)  # First occurrence is in sos s
 export SOS_SI_MAX=$(yaml_get "si_max" | head -1)
 export SOS_B=$(yaml_get "B")
 export SOS_MU0=$(yaml_get "mu0")
+export SOS_M_POWER=$(yaml_get "m_power")
 
 # Two-point experiment parameters
 export TPT_PRIOR_ATOMS=$(yaml_get_array "prior_atoms")

@@ -52,6 +52,11 @@ sos:
   # Initial mean estimate for NPMLE algorithm
   mu0: 1.0
 
+  # Power of n for computing m (number of "signal" samples)
+  # m = max(1, floor(n^m_power))
+  # Default 0.5 gives m ≈ sqrt(n)
+  m_power: 0.5
+
 # -----------------------------------------------------------------------------
 # Two-Point Prior (2PT) Experiment Parameters
 # -----------------------------------------------------------------------------
