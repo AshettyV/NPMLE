@@ -13,15 +13,20 @@
 
 # =============================================================================
 # NPMLE Tests - SLURM Submission Script
-# Node specification: 120 CPUs, 8 H200 GPUs
+# =============================================================================
+# Note: SBATCH directives above cannot use variables (parsed before script runs)
+# Update them manually if SLURM settings change in npmle_config.sh
 # =============================================================================
 
 # Set working directory
 WORK_DIR="${SLURM_SUBMIT_DIR:-$(pwd)}"
 cd "$WORK_DIR"
 
+# Source shared configuration
+source "${WORK_DIR}/npmle_config.sh"
+
 # Create output and log directories
-OUTPUT_DIR="/home/shetty/orcd/scratch/npmle/results_${SLURM_JOB_ID}"
+OUTPUT_DIR="${BASE_DIR}/results_${SLURM_JOB_ID}"
 LOG_DIR="${OUTPUT_DIR}/logs"
 mkdir -p "$LOG_DIR"
 
@@ -29,6 +34,18 @@ mkdir -p "$LOG_DIR"
 LOG_FILE="${LOG_DIR}/experiment.log"
 STATUS_FILE="${LOG_DIR}/status.txt"
 RESOURCE_LOG="${LOG_DIR}/resources.log"
+
+# Print log locations immediately (visible in SLURM .out file)
+echo "=============================================="
+echo "NPMLE Experiment Starting"
+echo "=============================================="
+echo "Log file:      $LOG_FILE"
+echo "Status file:   $STATUS_FILE"
+echo "Resource log:  $RESOURCE_LOG"
+echo "Output dir:    $OUTPUT_DIR"
+echo ""
+echo "To monitor: tail -f $LOG_FILE"
+echo "=============================================="
 
 # =============================================================================
 # Logging Functions
@@ -85,7 +102,6 @@ log "Log file: $LOG_FILE"
 update_status "INITIALIZING"
 
 # Create symlink to latest experiment for easy access
-LATEST_LINK="/home/shetty/orcd/scratch/npmle/latest"
 ln -sfn "$OUTPUT_DIR" "$LATEST_LINK"
 log "Created symlink: $LATEST_LINK -> $OUTPUT_DIR"
 
@@ -117,31 +133,9 @@ log "NumPy version: $(python3 -c 'import numpy; print(numpy.__version__)' 2>&1)"
 # =============================================================================
 # Run the NPMLE tests
 # =============================================================================
-#
-# Configuration options:
-#   --n-workers    : Number of parallel workers (default: all CPUs)
-#   --n-sims       : Number of simulations per n value (default: 100)
-#   --n-points     : Number of n values to test (default: 15)
-#   --n-min        : Log10 of minimum n (default: 2, i.e., n=100)
-#   --n-max        : Log10 of maximum n (default: 5, i.e., n=100000)
-#   --output-dir   : Output directory for results
-#   --experiment   : Which experiment to run (sos, 2pt, both)
-#
-# Note: This code is CPU-bound (uses scipy/numpy). The GPUs on this node
-# are available but not utilized by the current implementation.
-# For GPU acceleration, consider porting to JAX or PyTorch.
-# =============================================================================
-
-# Experiment configuration
-N_WORKERS=120
-N_SIMS=100
-N_POINTS=15
-N_MIN=2
-N_MAX=5
-EXPERIMENT="both"
 
 log_section "Starting NPMLE Experiment"
-log "Configuration:"
+log "Configuration (from npmle_config.sh):"
 log "  n-workers: $N_WORKERS"
 log "  n-sims: $N_SIMS"
 log "  n-points: $N_POINTS"
