@@ -61,6 +61,7 @@ if [ "$MODE" == "shell" ]; then
         --ntasks=1 \
         --cpus-per-task=$DEBUG_CPUS \
         --mem=$DEBUG_MEM \
+        --gpus-per-node=1 \
         --time=$DEBUG_TIME \
         --job-name=npmle_debug
 
@@ -75,6 +76,7 @@ elif [ "$MODE" == "python" ]; then
         --ntasks=1 \
         --cpus-per-task=$DEBUG_CPUS \
         --mem=$DEBUG_MEM \
+        --gpus-per-node=1 \
         --time=$DEBUG_TIME \
         --job-name=npmle_python \
         --pty \
@@ -101,6 +103,7 @@ elif [ "$MODE" == "run" ]; then
         --ntasks=1 \
         --cpus-per-task=$CPUS_PER_TASK \
         --mem=$MEM \
+        --gpus-per-node=1 \
         --time=$TIME \
         --job-name=npmle_interactive \
         --pty \

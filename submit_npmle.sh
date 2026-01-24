@@ -9,6 +9,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --partition=pi_rakhlin
 #SBATCH --nodelist=node4500
+#SBATCH --gpus-per-node=1
 
 
 # =============================================================================
