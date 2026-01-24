@@ -70,6 +70,7 @@ elif [ "$MODE" == "python" ]; then
             module load miniforge
             source $CONDA_PATH/etc/profile.d/conda.sh
             conda activate $CONDA_ENV
+            pip install --upgrade numpy scipy matplotlib
             echo ''
             echo 'Python environment ready. Starting Python...'
             echo 'Working directory: \$(pwd)'
@@ -95,6 +96,7 @@ elif [ "$MODE" == "run" ]; then
             module load miniforge
             source $CONDA_PATH/etc/profile.d/conda.sh
             conda activate $CONDA_ENV
+            pip install --upgrade numpy scipy matplotlib
             echo ''
             echo 'Running experiment...'
             echo ''

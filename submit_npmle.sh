@@ -175,7 +175,7 @@ if ! command -v python &> /dev/null; then
 fi
 
 log "Python path: $(which python)"
-pip install --upgrade numpy scipy 2>&1 | tee -a "$LOG_FILE"
+pip install --upgrade numpy scipy matplotlib 2>&1 | tee -a "$LOG_FILE"
 
 # Print Python and package info
 log_section "Environment Info"
