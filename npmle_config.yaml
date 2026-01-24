@@ -79,6 +79,12 @@ two_point:
   # Maximum sigma for NPMLE search range
   si_max: 100.0
 
+  # Power of n for computing dynamic weights (optional)
+  # If > 0: weight_1 = n^(-weight_power), weight_2 = 1 - weight_1
+  # If 0: use fixed prior_weights above
+  # Default 0 uses fixed weights
+  weight_power: 0
+
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------

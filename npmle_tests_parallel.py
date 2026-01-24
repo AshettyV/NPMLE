@@ -399,10 +399,10 @@ def npmle_alternating_full(N_obs, si_min=0, si_max=np.inf, verbose=False, iter_m
 
 def run_single_simulation_sos(args):
     """Run a single simulation for Subset-of-Signals experiment"""
-    s, n, true_mu, si_min, si_max, B, mu0, seed = args
+    s, n, true_mu, si_min, si_max, B, mu0, m_power, seed = args
     rng = np.random.default_rng(seed)
 
-    m = max(1, int(np.sqrt(n * np.log(n))))
+    m = max(1, int(n ** m_power))
 
     # Generate data
     X = subset_of_signals_adversarial_prior(
@@ -436,11 +436,19 @@ def run_single_simulation_sos(args):
 
 def run_single_simulation_2pt(args):
     """Run a single simulation for Two-Point Prior experiment"""
-    s, n, true_mu, prior_atoms, prior_weights, si_min, si_max, seed = args
+    s, n, true_mu, prior_atoms, prior_weights, weight_power, si_min, si_max, seed = args
     rng = np.random.default_rng(seed)
 
+    # Compute dynamic weights if weight_power > 0
+    if weight_power > 0:
+        w1 = n ** (-weight_power)
+        w1 = min(max(w1, 1e-10), 1 - 1e-10)  # Clamp to valid range
+        weights = np.array([w1, 1 - w1])
+    else:
+        weights = prior_weights
+
     # Generate data from two-point prior
-    X, true_sigmas = generate_data_from_prior(prior_atoms, prior_weights, true_mu, n, rng=rng)
+    X, true_sigmas = generate_data_from_prior(prior_atoms, weights, true_mu, n, rng=rng)
 
     # 1. MLE with known G (known sigmas)
     mu_hat_mle_known = mle_known_sigma(X, true_sigmas)
@@ -478,7 +486,7 @@ def compute_stats(results_dict, n_values):
     return np.array(means), np.array(stds)
 
 
-def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, n_workers, output_dir):
+def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_power, n_workers, output_dir):
     """Run Subset-of-Signals experiment with parallel processing"""
     print("=" * 60)
     print("EXPERIMENT 1: Subset-of-Signals Prior")
@@ -494,7 +502,7 @@ def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, n_work
     for n in n_values:
         for s in range(n_sims):
             seed = base_seed + n * n_sims + s
-            all_args.append((s, n, true_mu, si_min, si_max, B, mu0, seed))
+            all_args.append((s, n, true_mu, si_min, si_max, B, mu0, m_power, seed))
 
     print(f"Total simulations to run: {len(all_args)}")
 
@@ -540,6 +548,7 @@ def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, n_work
             'si_max': si_max,
             'B': B,
             'mu0': mu0,
+            'm_power': m_power,
             'n_sims': n_sims
         }
     }
@@ -551,18 +560,20 @@ def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, n_work
 
     # Create plot
     create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds,
-                    npmle_means, npmle_stds, si_min, si_max, B, mu0, true_mu, n_sims, output_dir)
+                    npmle_means, npmle_stds, si_min, si_max, B, mu0, m_power, true_mu, n_sims, output_dir)
 
     return results_data
 
 
 def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
-                       si_min, si_max, n_workers, output_dir):
+                       weight_power, si_min, si_max, n_workers, output_dir):
     """Run Two-Point Prior experiment with parallel processing"""
     print("\n" + "=" * 60)
     print("EXPERIMENT 2: Two-Point Prior (MLE vs NPMLE)")
     print("=" * 60)
     print(f"Prior atoms: {prior_atoms}, weights: {prior_weights}")
+    if weight_power > 0:
+        print(f"Dynamic weights: w1 = n^(-{weight_power}), w2 = 1 - w1")
     print(f"n values: {n_values}")
     print(f"Simulations per n: {n_sims}")
     print(f"Using {n_workers} workers")
@@ -574,7 +585,7 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
     for n in n_values:
         for s in range(n_sims):
             seed = base_seed + n * n_sims + s
-            all_args.append((s, n, true_mu, prior_atoms, prior_weights, si_min, si_max, seed))
+            all_args.append((s, n, true_mu, prior_atoms, prior_weights, weight_power, si_min, si_max, seed))
 
     print(f"Total simulations to run: {len(all_args)}")
 
@@ -612,6 +623,7 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
             'true_mu': true_mu,
             'prior_atoms': prior_atoms,
             'prior_weights': prior_weights,
+            'weight_power': weight_power,
             'si_min': si_min,
             'si_max': si_max,
             'n_sims': n_sims
@@ -625,13 +637,13 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
 
     # Create plot
     create_plot_2pt(n_values, mle_known_means, mle_known_stds, npmle_means, npmle_stds,
-                    prior_atoms, prior_weights, si_min, si_max, true_mu, n_sims, output_dir)
+                    prior_atoms, prior_weights, weight_power, si_min, si_max, true_mu, n_sims, output_dir)
 
     return results_data
 
 
 def create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds,
-                    npmle_means, npmle_stds, si_min, si_max, B, mu0, true_mu, n_sims, output_dir):
+                    npmle_means, npmle_stds, si_min, si_max, B, mu0, m_power, true_mu, n_sims, output_dir):
     """Create plot for Subset-of-Signals experiment"""
     fig, ax = plt.subplots(figsize=(12, 8))
 
@@ -671,6 +683,7 @@ def create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds
                   f'$\\sigma_{{max}} = {si_max}$\n'
                   f'$B = {B}$ (truncation)\n'
                   f'$\\mu_0 = {mu0}$ (init)\n'
+                  f'$m = n^{{{m_power}}}$\n'
                   f'Simulations: {n_sims}')
     props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
     ax.text(0.02, 0.02, param_text, transform=ax.transAxes, fontsize=10,
@@ -684,7 +697,7 @@ def create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds
 
 
 def create_plot_2pt(n_values, mle_means, mle_stds, npmle_means, npmle_stds,
-                    prior_atoms, prior_weights, si_min, si_max, true_mu, n_sims, output_dir):
+                    prior_atoms, prior_weights, weight_power, si_min, si_max, true_mu, n_sims, output_dir):
     """Create plot for Two-Point Prior experiment"""
     fig, ax = plt.subplots(figsize=(12, 8))
 
@@ -713,10 +726,14 @@ def create_plot_2pt(n_values, mle_means, mle_stds, npmle_means, npmle_stds,
     ax.tick_params(axis='both', which='major', labelsize=12)
 
     # Add parameter box
+    if weight_power > 0:
+        weight_str = f'$w_1 = n^{{-{weight_power}}}$'
+    else:
+        weight_str = f'$({prior_weights[0]}, {prior_weights[1]})$'
     param_text = (f'Parameters:\n'
                   f'$\\mu^* = {true_mu}$\n'
                   f'Prior atoms: $\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$\n'
-                  f'Prior weights: $({prior_weights[0]}, {prior_weights[1]})$\n'
+                  f'Prior weights: {weight_str}\n'
                   f'NPMLE range: $[{si_min}, {si_max}]$\n'
                   f'Simulations: {n_sims}')
     props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
@@ -761,6 +778,8 @@ def main():
                         help='SOS: truncation bound B (default: 10.0)')
     parser.add_argument('--sos-mu0', type=float, default=1.0,
                         help='SOS: initial mean estimate (default: 1.0)')
+    parser.add_argument('--sos-m-power', type=float, default=0.5,
+                        help='SOS: power of n for computing m = max(1, floor(n^m_power)) (default: 0.5)')
 
     # Two-point experiment parameters
     parser.add_argument('--tpt-prior-atoms', type=float, nargs=2, default=[1.0, 30.0],
@@ -771,6 +790,8 @@ def main():
                         help='Two-point: minimum sigma for NPMLE (default: 0.5)')
     parser.add_argument('--tpt-si-max', type=float, default=100.0,
                         help='Two-point: maximum sigma for NPMLE (default: 100.0)')
+    parser.add_argument('--tpt-weight-power', type=float, default=0.0,
+                        help='Two-point: power of n for dynamic weights. If > 0: w1=n^(-power), w2=1-w1. If 0: use fixed weights (default: 0)')
 
     args = parser.parse_args()
 
@@ -793,17 +814,17 @@ def main():
 
     # Experiment 1: Subset-of-Signals
     if args.experiment in ['sos', 'both']:
-        print(f"\nSOS Parameters: si_min={args.sos_si_min}, si_max={args.sos_si_max}, B={args.sos_B}, mu0={args.sos_mu0}")
+        print(f"\nSOS Parameters: si_min={args.sos_si_min}, si_max={args.sos_si_max}, B={args.sos_B}, mu0={args.sos_mu0}, m_power={args.sos_m_power}")
         run_experiment_sos(n_values, args.n_sims, args.true_mu, args.sos_si_min, args.sos_si_max,
-                          args.sos_B, args.sos_mu0, n_workers, args.output_dir)
+                          args.sos_B, args.sos_mu0, args.sos_m_power, n_workers, args.output_dir)
 
     # Experiment 2: Two-Point Prior
     if args.experiment in ['2pt', 'both']:
         prior_atoms = np.array(args.tpt_prior_atoms)
         prior_weights = np.array(args.tpt_prior_weights)
-        print(f"\nTwo-Point Parameters: atoms={prior_atoms}, weights={prior_weights}, si_min={args.tpt_si_min}, si_max={args.tpt_si_max}")
+        print(f"\nTwo-Point Parameters: atoms={prior_atoms}, weights={prior_weights}, weight_power={args.tpt_weight_power}, si_min={args.tpt_si_min}, si_max={args.tpt_si_max}")
         run_experiment_2pt(n_values, args.n_sims, args.true_mu, prior_atoms, prior_weights,
-                          args.tpt_si_min, args.tpt_si_max, n_workers, args.output_dir)
+                          args.tpt_weight_power, args.tpt_si_min, args.tpt_si_max, n_workers, args.output_dir)
 
     print("\n" + "=" * 60)
     print("All experiments completed!")

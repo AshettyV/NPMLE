@@ -202,9 +202,11 @@ log "    si-min: $SOS_SI_MIN"
 log "    si-max: $SOS_SI_MAX"
 log "    B: $SOS_B"
 log "    mu0: $SOS_MU0"
+log "    m-power: $SOS_M_POWER"
 log "  Two-Point Experiment:"
 log "    prior-atoms: $TPT_PRIOR_ATOMS"
 log "    prior-weights: $TPT_PRIOR_WEIGHTS"
+log "    weight-power: $TPT_WEIGHT_POWER"
 log "    si-min: $TPT_SI_MIN"
 log "    si-max: $TPT_SI_MAX"
 
@@ -235,8 +237,10 @@ python npmle_tests_parallel.py \
     --sos-si-max $SOS_SI_MAX \
     --sos-B $SOS_B \
     --sos-mu0 $SOS_MU0 \
+    --sos-m-power $SOS_M_POWER \
     --tpt-prior-atoms $TPT_PRIOR_ATOMS \
     --tpt-prior-weights $TPT_PRIOR_WEIGHTS \
+    --tpt-weight-power $TPT_WEIGHT_POWER \
     --tpt-si-min $TPT_SI_MIN \
     --tpt-si-max $TPT_SI_MAX \
     2>&1 | tee -a "$LOG_FILE"

@@ -65,9 +65,10 @@ export SOS_M_POWER=$(yaml_get "m_power")
 # Two-point experiment parameters
 export TPT_PRIOR_ATOMS=$(yaml_get_array "prior_atoms")
 export TPT_PRIOR_WEIGHTS=$(yaml_get_array "prior_weights")
-# Get si_min/si_max from two_point section (grep after "two_point:" marker)
+# Get si_min/si_max/weight_power from two_point section (grep after "two_point:" marker)
 export TPT_SI_MIN=$(awk '/^two_point:/,/^[a-z]/' "$CONFIG_FILE" | grep "si_min:" | sed 's/.*:\s*//' | xargs)
 export TPT_SI_MAX=$(awk '/^two_point:/,/^[a-z]/' "$CONFIG_FILE" | grep "si_max:" | sed 's/.*:\s*//' | xargs)
+export TPT_WEIGHT_POWER=$(awk '/^two_point:/,/^[a-z]/' "$CONFIG_FILE" | grep "weight_power:" | sed 's/.*:\s*//' | xargs)
 
 # Paths
 export BASE_DIR=$(yaml_get "base_dir")
@@ -108,12 +109,14 @@ print_config() {
     echo "  SOS_SI_MAX=$SOS_SI_MAX"
     echo "  SOS_B=$SOS_B"
     echo "  SOS_MU0=$SOS_MU0"
+    echo "  SOS_M_POWER=$SOS_M_POWER"
     echo ""
     echo "Two-Point Experiment:"
     echo "  TPT_PRIOR_ATOMS=$TPT_PRIOR_ATOMS"
     echo "  TPT_PRIOR_WEIGHTS=$TPT_PRIOR_WEIGHTS"
     echo "  TPT_SI_MIN=$TPT_SI_MIN"
     echo "  TPT_SI_MAX=$TPT_SI_MAX"
+    echo "  TPT_WEIGHT_POWER=$TPT_WEIGHT_POWER"
     echo ""
     echo "Paths:"
     echo "  BASE_DIR=$BASE_DIR"

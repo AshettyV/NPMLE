@@ -113,8 +113,10 @@ elif [ "$MODE" == "run" ]; then
                 --sos-si-max $SOS_SI_MAX \
                 --sos-B $SOS_B \
                 --sos-mu0 $SOS_MU0 \
+                --sos-m-power $SOS_M_POWER \
                 --tpt-prior-atoms $TPT_PRIOR_ATOMS \
                 --tpt-prior-weights $TPT_PRIOR_WEIGHTS \
+                --tpt-weight-power $TPT_WEIGHT_POWER \
                 --tpt-si-min $TPT_SI_MIN \
                 --tpt-si-max $TPT_SI_MAX
         "
