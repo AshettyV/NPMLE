@@ -1,15 +1,17 @@
 #!/bin/bash
-#SBATCH --job-name=npmle_tests
-#SBATCH --output=npmle_tests_%j.out
-#SBATCH --error=npmle_tests_%j.err
-#SBATCH --nodes=1
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=120
-#SBATCH --gpus=8
-#SBATCH --gres=gpu:H200:8
-#SBATCH --mem=256G
-#SBATCH --time=24:00:00
-#SBATCH --partition=gpu
+# SBATCH --job-name=npmle_tests
+# SBATCH --output=npmle_tests_%j.out
+# SBATCH --error=npmle_tests_%j.err
+# SBATCH --nodes=1
+# SBATCH --ntasks=1
+# SBATCH --cpus-per-task=120
+# SBATCH --gpus=8
+# SBATCH --gres=gpu:H200:8
+# SBATCH --mem=256G
+# SBATCH --time=24:00:00
+# SBATCH --partition=pi_rakhlin
+# SBATCH --node-list=node4500
+
 
 # =============================================================================
 # NPMLE Tests - SLURM Submission Script
@@ -28,22 +30,22 @@ echo "=============================================="
 
 # Load required modules (adjust based on your cluster's module system)
 # Uncomment and modify as needed:
-# module purge
-# module load python/3.10
+module load miniforge
+# module load conda
 # module load cuda/12.0
 # module load anaconda3
 
 # Activate virtual environment if using one
 # source /path/to/your/venv/bin/activate
 # OR for conda:
-# conda activate your_env_name
+conda activate trial_env
 
 # Set working directory
 WORK_DIR="${SLURM_SUBMIT_DIR:-$(pwd)}"
 cd "$WORK_DIR"
 
 # Create output directory with job ID
-OUTPUT_DIR="./results_${SLURM_JOB_ID}"
+OUTPUT_DIR="/home/shetty/orcd/scratch/npmle/results_${SLURM_JOB_ID}"
 mkdir -p "$OUTPUT_DIR"
 
 echo ""
@@ -80,7 +82,7 @@ echo ""
 echo "Starting NPMLE tests..."
 echo ""
 
-python3 npmle_tests_parallel.py \
+python npmle_tests_parallel.py \
     --n-workers 120 \
     --n-sims 100 \
     --n-points 15 \
