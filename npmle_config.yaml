@@ -83,7 +83,7 @@ two_point:
   # If > 0: weight_1 = n^(-weight_power), weight_2 = 1 - weight_1
   # If 0: use fixed prior_weights above
   # Default 0 uses fixed weights
-  weight_power: 0
+  weight_power: 0.5
 
 # -----------------------------------------------------------------------------
 # Paths
@@ -115,6 +115,7 @@ conda:
     - numpy
     - scipy
     - matplotlib
+    - cvxpy
 
 # -----------------------------------------------------------------------------
 # SLURM Settings
