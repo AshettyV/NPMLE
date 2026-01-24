@@ -5,8 +5,6 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=120
-#SBATCH --gpus=8
-#SBATCH --gres=gpu:H200:8
 #SBATCH --mem=256G
 #SBATCH --time=24:00:00
 #SBATCH --partition=pi_rakhlin
@@ -105,6 +103,7 @@ module load miniforge 2>&1 | tee -a "$LOG_FILE"
 # Activate conda environment
 log "Activating conda environment: trial_env"
 conda activate trial_env
+pip install --upgrade numpy scipy 2>&1 | tee -a "$LOG_FILE"
 
 # Print Python and package info
 log_section "Environment Info"
