@@ -65,10 +65,37 @@ export SOS_M_POWER=$(yaml_get "m_power")
 # Two-point experiment parameters
 export TPT_PRIOR_ATOMS=$(yaml_get_array "prior_atoms")
 export TPT_PRIOR_WEIGHTS=$(yaml_get_array "prior_weights")
-# Get si_min/si_max/weight_power from two_point section (grep after "two_point:" marker)
-export TPT_SI_MIN=$(awk '/^two_point:/,/^[a-z]/' "$CONFIG_FILE" | grep "si_min:" | sed 's/.*:\s*//' | xargs)
-export TPT_SI_MAX=$(awk '/^two_point:/,/^[a-z]/' "$CONFIG_FILE" | grep "si_max:" | sed 's/.*:\s*//' | xargs)
-TPT_WEIGHT_POWER_RAW=$(awk '/^two_point:/,/^[a-z]/' "$CONFIG_FILE" | grep "weight_power:" | sed 's/.*:\s*//' | xargs)
+
+# Function to extract values from two_point section (more robust than awk range)
+yaml_get_two_point() {
+    local key="$1"
+    local in_section=0
+    while IFS= read -r line; do
+        # Check if we're entering two_point section
+        if [[ "$line" =~ ^two_point: ]]; then
+            in_section=1
+            continue
+        fi
+        # Check if we're leaving section (new top-level key)
+        if [ $in_section -eq 1 ] && [[ "$line" =~ ^[a-z] ]]; then
+            break
+        fi
+        # Look for our key within the section
+        if [ $in_section -eq 1 ] && [[ "$line" =~ ^[[:space:]]*${key}: ]]; then
+            echo "$line" | sed 's/.*:[[:space:]]*//' | sed 's/"//g' | sed "s/'//g" | xargs
+            return
+        fi
+    done < "$CONFIG_FILE"
+}
+
+# Get si_min/si_max/weight_power from two_point section
+TPT_SI_MIN_RAW=$(yaml_get_two_point "si_min")
+TPT_SI_MAX_RAW=$(yaml_get_two_point "si_max")
+TPT_WEIGHT_POWER_RAW=$(yaml_get_two_point "weight_power")
+
+# Export with defaults
+export TPT_SI_MIN=${TPT_SI_MIN_RAW:-0.5}
+export TPT_SI_MAX=${TPT_SI_MAX_RAW:-100.0}
 export TPT_WEIGHT_POWER=${TPT_WEIGHT_POWER_RAW:-0}
 
 # Paths
