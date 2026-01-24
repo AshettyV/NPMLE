@@ -14,6 +14,9 @@ DEBUG_CPUS=4
 DEBUG_MEM="8G"
 DEBUG_TIME="1:00:00"
 
+# Interactive run mode uses shorter time than batch jobs (partition limit)
+INTERACTIVE_RUN_TIME="4:00:00"
+
 # Parse arguments
 MODE="shell"
 if [ "$1" == "--python" ]; then
@@ -39,6 +42,7 @@ echo "Node:      $NODELIST"
 if [ "$MODE" == "run" ]; then
     echo "CPUs:      $CPUS_PER_TASK (full resources for experiment)"
     echo "Memory:    $MEM"
+    echo "Time:      $INTERACTIVE_RUN_TIME"
 else
     echo "CPUs:      $DEBUG_CPUS (debug mode)"
     echo "Memory:    $DEBUG_MEM"
@@ -104,7 +108,7 @@ elif [ "$MODE" == "run" ]; then
         --cpus-per-task=$CPUS_PER_TASK \
         --mem=$MEM \
         --gpus-per-node=1 \
-        --time=$TIME \
+        --time=$INTERACTIVE_RUN_TIME \
         --job-name=npmle_interactive \
         --pty \
         bash -c "
