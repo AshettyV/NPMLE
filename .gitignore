@@ -205,3 +205,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+slurm-8376515.out 
+slurm-8376533.out 
+slurm-8376535.out
