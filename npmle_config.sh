@@ -18,6 +18,13 @@ BASE_DIR="/home/shetty/orcd/scratch/npmle"
 SLURM_LOG_DIR="${BASE_DIR}/slurm_logs"
 LATEST_LINK="${BASE_DIR}/latest"
 
+# Conda installation path (set this if auto-detection fails)
+# Example: CONDA_PATH="/path/to/miniforge3"
+CONDA_PATH=""
+
+# Conda environment name
+CONDA_ENV="trial_env"
+
 # SLURM settings
 PARTITION="pi_rakhlin"
 NODELIST="node4500"
