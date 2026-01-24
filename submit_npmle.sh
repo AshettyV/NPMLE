@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=npmle_tests
-#SBATCH --output=npmle_tests_%j.out
-#SBATCH --error=npmle_tests_%j.err
+#SBATCH --output=/home/shetty/orcd/scratch/npmle/slurm_logs/npmle_tests_%j.out
+#SBATCH --error=/home/shetty/orcd/scratch/npmle/slurm_logs/npmle_tests_%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=120
@@ -99,6 +99,10 @@ module load miniforge 2>&1 | tee -a "$LOG_FILE"
 # module load conda
 # module load cuda/12.0
 # module load anaconda3
+
+# Initialize conda for this shell
+# (Required because non-interactive shells don't source .bashrc)
+eval "$(conda shell.bash hook)"
 
 # Activate conda environment
 log "Activating conda environment: trial_env"
