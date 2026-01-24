@@ -22,8 +22,8 @@
 WORK_DIR="${SLURM_SUBMIT_DIR:-$(pwd)}"
 cd "$WORK_DIR"
 
-# Source shared configuration
-source "${WORK_DIR}/npmle_config.sh"
+# Source shared configuration (parses YAML config)
+source "${WORK_DIR}/parse_config.sh"
 
 # Create output and log directories
 OUTPUT_DIR="${BASE_DIR}/results_${SLURM_JOB_ID}"
@@ -175,7 +175,8 @@ if ! command -v python &> /dev/null; then
 fi
 
 log "Python path: $(which python)"
-pip install --upgrade numpy scipy matplotlib 2>&1 | tee -a "$LOG_FILE"
+log "Installing/upgrading packages: $PIP_PACKAGES"
+pip install --upgrade $PIP_PACKAGES 2>&1 | tee -a "$LOG_FILE"
 
 # Print Python and package info
 log_section "Environment Info"
@@ -187,13 +188,25 @@ log "NumPy version: $(python3 -c 'import numpy; print(numpy.__version__)' 2>&1)"
 # =============================================================================
 
 log_section "Starting NPMLE Experiment"
-log "Configuration (from npmle_config.sh):"
-log "  n-workers: $N_WORKERS"
-log "  n-sims: $N_SIMS"
-log "  n-points: $N_POINTS"
-log "  n-min: $N_MIN (10^$N_MIN = $(python3 -c "print(10**$N_MIN)"))"
-log "  n-max: $N_MAX (10^$N_MAX = $(python3 -c "print(10**$N_MAX)"))"
-log "  experiment: $EXPERIMENT"
+log "Configuration (from npmle_config.yaml):"
+log "  General:"
+log "    n-workers: $N_WORKERS"
+log "    n-sims: $N_SIMS"
+log "    n-points: $N_POINTS"
+log "    n-min: $N_MIN (10^$N_MIN = $(python3 -c "print(10**$N_MIN)"))"
+log "    n-max: $N_MAX (10^$N_MAX = $(python3 -c "print(10**$N_MAX)"))"
+log "    experiment: $EXPERIMENT"
+log "    true-mu: $TRUE_MU"
+log "  SOS Experiment:"
+log "    si-min: $SOS_SI_MIN"
+log "    si-max: $SOS_SI_MAX"
+log "    B: $SOS_B"
+log "    mu0: $SOS_MU0"
+log "  Two-Point Experiment:"
+log "    prior-atoms: $TPT_PRIOR_ATOMS"
+log "    prior-weights: $TPT_PRIOR_WEIGHTS"
+log "    si-min: $TPT_SI_MIN"
+log "    si-max: $TPT_SI_MAX"
 
 update_status "RUNNING_EXPERIMENT"
 
@@ -216,7 +229,17 @@ python npmle_tests_parallel.py \
     --n-min $N_MIN \
     --n-max $N_MAX \
     --output-dir "$OUTPUT_DIR" \
-    --experiment $EXPERIMENT 2>&1 | tee -a "$LOG_FILE"
+    --experiment $EXPERIMENT \
+    --true-mu $TRUE_MU \
+    --sos-si-min $SOS_SI_MIN \
+    --sos-si-max $SOS_SI_MAX \
+    --sos-B $SOS_B \
+    --sos-mu0 $SOS_MU0 \
+    --tpt-prior-atoms $TPT_PRIOR_ATOMS \
+    --tpt-prior-weights $TPT_PRIOR_WEIGHTS \
+    --tpt-si-min $TPT_SI_MIN \
+    --tpt-si-max $TPT_SI_MAX \
+    2>&1 | tee -a "$LOG_FILE"
 
 EXIT_CODE=${PIPESTATUS[0]}
 

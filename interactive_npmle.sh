@@ -7,7 +7,7 @@
 
 # Source config for settings
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/npmle_config.sh"
+source "${SCRIPT_DIR}/parse_config.sh"
 
 # Parse arguments
 MODE="shell"
@@ -70,7 +70,7 @@ elif [ "$MODE" == "python" ]; then
             module load miniforge
             source $CONDA_PATH/etc/profile.d/conda.sh
             conda activate $CONDA_ENV
-            pip install --upgrade numpy scipy matplotlib
+            pip install --upgrade $PIP_PACKAGES
             echo ''
             echo 'Python environment ready. Starting Python...'
             echo 'Working directory: \$(pwd)'
@@ -96,7 +96,7 @@ elif [ "$MODE" == "run" ]; then
             module load miniforge
             source $CONDA_PATH/etc/profile.d/conda.sh
             conda activate $CONDA_ENV
-            pip install --upgrade numpy scipy matplotlib
+            pip install --upgrade $PIP_PACKAGES
             echo ''
             echo 'Running experiment...'
             echo ''
@@ -107,6 +107,15 @@ elif [ "$MODE" == "run" ]; then
                 --n-min $N_MIN \
                 --n-max $N_MAX \
                 --output-dir $BASE_DIR/results_interactive_\$(date +%Y%m%d_%H%M%S) \
-                --experiment $EXPERIMENT
+                --experiment $EXPERIMENT \
+                --true-mu $TRUE_MU \
+                --sos-si-min $SOS_SI_MIN \
+                --sos-si-max $SOS_SI_MAX \
+                --sos-B $SOS_B \
+                --sos-mu0 $SOS_MU0 \
+                --tpt-prior-atoms $TPT_PRIOR_ATOMS \
+                --tpt-prior-weights $TPT_PRIOR_WEIGHTS \
+                --tpt-si-min $TPT_SI_MIN \
+                --tpt-si-max $TPT_SI_MAX
         "
 fi

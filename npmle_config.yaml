@@ -1,0 +1,120 @@
+# =============================================================================
+# NPMLE Experiment Configuration
+# =============================================================================
+# This file is read by run_npmle.sh, submit_npmle.sh, and interactive_npmle.sh
+# Edit settings here to change experiment parameters
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# General Experiment Settings
+# -----------------------------------------------------------------------------
+
+experiment:
+  # Number of parallel workers for multiprocessing
+  n_workers: 100
+
+  # Number of Monte Carlo simulations per n value
+  n_sims: 100
+
+  # Number of sample size (n) values to test
+  # Points are logarithmically spaced between n_min and n_max
+  n_points: 15
+
+  # Log10 of minimum sample size (n_min=2 means 10^2=100)
+  n_min: 2
+
+  # Log10 of maximum sample size (n_max=5 means 10^5=100,000)
+  n_max: 5
+
+  # Which experiment to run: "sos", "2pt", or "both"
+  type: "both"
+
+  # True mean (mu) for all experiments
+  true_mu: 2.0
+
+# -----------------------------------------------------------------------------
+# Subset-of-Signals (SOS) Experiment Parameters
+# -----------------------------------------------------------------------------
+# Prior: scales drawn uniformly from [si_min, 1] with prob m/n,
+#        or from [1, si_max] with prob 1 - m/n
+
+sos:
+  # Minimum sigma (scale parameter)
+  si_min: 0.7
+
+  # Maximum sigma (scale parameter)
+  si_max: 150
+
+  # Truncation bound B for truncated mean estimator
+  # Clips observations to [-B, B] before computing mean
+  B: 10.0
+
+  # Initial mean estimate for NPMLE algorithm
+  mu0: 1.0
+
+# -----------------------------------------------------------------------------
+# Two-Point Prior (2PT) Experiment Parameters
+# -----------------------------------------------------------------------------
+# Prior: mixture of two point masses at sigma values
+
+two_point:
+  # The two sigma values for the prior (as a list)
+  prior_atoms:
+    - 1.0
+    - 30.0
+
+  # Weights for each atom (must sum to 1)
+  prior_weights:
+    - 0.01
+    - 0.99
+
+  # Minimum sigma for NPMLE search range
+  si_min: 0.5
+
+  # Maximum sigma for NPMLE search range
+  si_max: 100.0
+
+# -----------------------------------------------------------------------------
+# Paths
+# -----------------------------------------------------------------------------
+
+paths:
+  # Base directory for all outputs
+  base_dir: "/home/shetty/orcd/scratch/npmle"
+
+  # Directory for SLURM log files (.out and .err)
+  slurm_log_dir: "/home/shetty/orcd/scratch/npmle/slurm_logs"
+
+  # Symlink to the latest experiment results
+  latest_link: "/home/shetty/orcd/scratch/npmle/latest"
+
+# -----------------------------------------------------------------------------
+# Conda Environment
+# -----------------------------------------------------------------------------
+
+conda:
+  # Conda installation path
+  path: "/home/shetty/.conda"
+
+  # Conda environment name to activate
+  env: "trial_env"
+
+  # Python packages to install/upgrade before running
+  pip_packages:
+    - numpy
+    - scipy
+    - matplotlib
+
+# -----------------------------------------------------------------------------
+# SLURM Settings
+# -----------------------------------------------------------------------------
+# Note: SBATCH directives in submit_npmle.sh cannot use variables
+# If you change these, also update the #SBATCH lines in submit_npmle.sh
+
+slurm:
+  partition: "pi_rakhlin"
+  nodelist: "node4500"
+  cpus_per_task: 100
+  mem: "256G"
+  time: "24:00:00"
+  job_name: "npmle_tests"

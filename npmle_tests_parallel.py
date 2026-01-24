@@ -711,6 +711,8 @@ def create_plot_2pt(n_values, mle_means, mle_stds, npmle_means, npmle_stds,
 
 def main():
     parser = argparse.ArgumentParser(description='NPMLE Tests - Parallelized')
+
+    # General experiment parameters
     parser.add_argument('--n-workers', type=int, default=None,
                         help='Number of parallel workers (default: all available CPUs)')
     parser.add_argument('--n-sims', type=int, default=100,
@@ -726,6 +728,29 @@ def main():
     parser.add_argument('--experiment', type=str, default='both',
                         choices=['sos', '2pt', 'both'],
                         help='Which experiment to run (default: both)')
+    parser.add_argument('--true-mu', type=float, default=2.0,
+                        help='True mean for all experiments (default: 2.0)')
+
+    # SOS experiment parameters
+    parser.add_argument('--sos-si-min', type=float, default=0.7,
+                        help='SOS: minimum sigma (default: 0.7)')
+    parser.add_argument('--sos-si-max', type=float, default=150,
+                        help='SOS: maximum sigma (default: 150)')
+    parser.add_argument('--sos-B', type=float, default=10.0,
+                        help='SOS: truncation bound B (default: 10.0)')
+    parser.add_argument('--sos-mu0', type=float, default=1.0,
+                        help='SOS: initial mean estimate (default: 1.0)')
+
+    # Two-point experiment parameters
+    parser.add_argument('--tpt-prior-atoms', type=float, nargs=2, default=[1.0, 30.0],
+                        help='Two-point: prior atoms (default: 1.0 30.0)')
+    parser.add_argument('--tpt-prior-weights', type=float, nargs=2, default=[0.01, 0.99],
+                        help='Two-point: prior weights (default: 0.01 0.99)')
+    parser.add_argument('--tpt-si-min', type=float, default=0.5,
+                        help='Two-point: minimum sigma for NPMLE (default: 0.5)')
+    parser.add_argument('--tpt-si-max', type=float, default=100.0,
+                        help='Two-point: maximum sigma for NPMLE (default: 100.0)')
+
     args = parser.parse_args()
 
     # Set number of workers
@@ -737,6 +762,7 @@ def main():
     print(f"NPMLE Tests - Parallelized Version")
     print(f"Available CPUs: {cpu_count()}")
     print(f"Using {n_workers} workers")
+    print(f"True mu: {args.true_mu}")
 
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
@@ -744,28 +770,19 @@ def main():
     # Define n values
     n_values = np.logspace(args.n_min, args.n_max, args.n_points).astype(int)
 
-    # Common parameters
-    true_mu = 2.0
-
     # Experiment 1: Subset-of-Signals
     if args.experiment in ['sos', 'both']:
-        si_min_sos = 0.7
-        si_max_sos = 150
-        B = 10.0
-        mu0 = 1.0
-
-        run_experiment_sos(n_values, args.n_sims, true_mu, si_min_sos, si_max_sos,
-                          B, mu0, n_workers, args.output_dir)
+        print(f"\nSOS Parameters: si_min={args.sos_si_min}, si_max={args.sos_si_max}, B={args.sos_B}, mu0={args.sos_mu0}")
+        run_experiment_sos(n_values, args.n_sims, args.true_mu, args.sos_si_min, args.sos_si_max,
+                          args.sos_B, args.sos_mu0, n_workers, args.output_dir)
 
     # Experiment 2: Two-Point Prior
     if args.experiment in ['2pt', 'both']:
-        prior_atoms = np.array([1.0, 30.0])
-        prior_weights = np.array([0.01, 0.99])
-        si_min_2pt = 0.5
-        si_max_2pt = 100.0
-
-        run_experiment_2pt(n_values, args.n_sims, true_mu, prior_atoms, prior_weights,
-                          si_min_2pt, si_max_2pt, n_workers, args.output_dir)
+        prior_atoms = np.array(args.tpt_prior_atoms)
+        prior_weights = np.array(args.tpt_prior_weights)
+        print(f"\nTwo-Point Parameters: atoms={prior_atoms}, weights={prior_weights}, si_min={args.tpt_si_min}, si_max={args.tpt_si_max}")
+        run_experiment_2pt(n_values, args.n_sims, args.true_mu, prior_atoms, prior_weights,
+                          args.tpt_si_min, args.tpt_si_max, n_workers, args.output_dir)
 
     print("\n" + "=" * 60)
     print("All experiments completed!")

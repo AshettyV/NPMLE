@@ -4,8 +4,8 @@
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source shared configuration
-source "${SCRIPT_DIR}/npmle_config.sh"
+# Source shared configuration (parses YAML config)
+source "${SCRIPT_DIR}/parse_config.sh"
 
 # Submit the job and capture the job ID
 JOB_ID=$(sbatch --parsable "${SCRIPT_DIR}/submit_npmle.sh")
