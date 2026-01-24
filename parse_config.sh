@@ -68,7 +68,8 @@ export TPT_PRIOR_WEIGHTS=$(yaml_get_array "prior_weights")
 # Get si_min/si_max/weight_power from two_point section (grep after "two_point:" marker)
 export TPT_SI_MIN=$(awk '/^two_point:/,/^[a-z]/' "$CONFIG_FILE" | grep "si_min:" | sed 's/.*:\s*//' | xargs)
 export TPT_SI_MAX=$(awk '/^two_point:/,/^[a-z]/' "$CONFIG_FILE" | grep "si_max:" | sed 's/.*:\s*//' | xargs)
-export TPT_WEIGHT_POWER=$(awk '/^two_point:/,/^[a-z]/' "$CONFIG_FILE" | grep "weight_power:" | sed 's/.*:\s*//' | xargs)
+TPT_WEIGHT_POWER_RAW=$(awk '/^two_point:/,/^[a-z]/' "$CONFIG_FILE" | grep "weight_power:" | sed 's/.*:\s*//' | xargs)
+export TPT_WEIGHT_POWER=${TPT_WEIGHT_POWER_RAW:-0}
 
 # Paths
 export BASE_DIR=$(yaml_get "base_dir")
