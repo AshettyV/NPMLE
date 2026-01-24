@@ -143,58 +143,18 @@ elif [ "$MODE" == "run" ]; then
             log_msg "Loading miniforge module..."
             module load miniforge 2>&1 | tee -a $LOG_FILE
 
-            # Debug: show environment after module load
-            log_msg "Debug: MAMBA_ROOT_PREFIX=$MAMBA_ROOT_PREFIX"
-            log_msg "Debug: CONDA_PREFIX=$CONDA_PREFIX"
-            log_msg "Debug: which conda=$(which conda 2>/dev/null || echo not found)"
-
-            # Initialize conda - try multiple methods
-            log_msg "Initializing conda..."
-            CONDA_FOUND=0
-
-            # Method 1: Check if conda is already in PATH (most likely after module load)
-            if command -v conda &> /dev/null; then
-                log_msg "Found conda in PATH: $(which conda)"
-                eval "$(conda shell.bash hook)"
-                CONDA_FOUND=1
-            # Method 2: Use MAMBA_ROOT_PREFIX set by module load miniforge
-            elif [ -n "$MAMBA_ROOT_PREFIX" ] && [ -f "$MAMBA_ROOT_PREFIX/etc/profile.d/conda.sh" ]; then
-                log_msg "Found conda via MAMBA_ROOT_PREFIX: $MAMBA_ROOT_PREFIX"
-                source "$MAMBA_ROOT_PREFIX/etc/profile.d/conda.sh"
-                CONDA_FOUND=1
-            # Method 3: Try CONDA_PREFIX
-            elif [ -n "$CONDA_PREFIX" ] && [ -f "$CONDA_PREFIX/etc/profile.d/conda.sh" ]; then
-                log_msg "Found conda via CONDA_PREFIX: $CONDA_PREFIX"
-                source "$CONDA_PREFIX/etc/profile.d/conda.sh"
-                CONDA_FOUND=1
-            # Method 4: Try CONDA_PATH from config
-            elif [ -f "'"$CONDA_PATH"'/etc/profile.d/conda.sh" ]; then
-                log_msg "Found conda at CONDA_PATH: '"$CONDA_PATH"'"
-                source "'"$CONDA_PATH"'/etc/profile.d/conda.sh"
-                CONDA_FOUND=1
-            # Method 5: Try common locations
-            elif [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
-                log_msg "Found conda at $HOME/miniforge3"
-                source "$HOME/miniforge3/etc/profile.d/conda.sh"
-                CONDA_FOUND=1
-            elif [ -f "$HOME/.conda/etc/profile.d/conda.sh" ]; then
-                log_msg "Found conda at $HOME/.conda"
-                source "$HOME/.conda/etc/profile.d/conda.sh"
-                CONDA_FOUND=1
-            fi
-
-            if [ $CONDA_FOUND -eq 0 ]; then
-                log_msg "ERROR: Could not find conda installation"
-                log_msg "Try running: module load miniforge && which conda"
-                exit 1
-            fi
+            # Initialize conda using the same approach as --python mode
+            log_msg "Initializing conda from: '"$CONDA_PATH"'/etc/profile.d/conda.sh"
+            source "'"$CONDA_PATH"'/etc/profile.d/conda.sh"
 
             log_msg "Activating conda environment: '"$CONDA_ENV"'"
-            conda activate '"$CONDA_ENV"' || { log_msg "ERROR: Failed to activate '"$CONDA_ENV"'"; exit 1; }
+            conda activate '"$CONDA_ENV"'
 
-            # Verify python is available
+            # Verify activation worked
             if ! command -v python &> /dev/null; then
-                log_msg "ERROR: python not found after activating conda"
+                log_msg "ERROR: python not found after conda activate"
+                log_msg "Checking conda info..."
+                conda info 2>&1 | tee -a $LOG_FILE
                 exit 1
             fi
             log_msg "Python: $(which python)"
