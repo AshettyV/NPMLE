@@ -20,7 +20,7 @@ LATEST_LINK="${BASE_DIR}/latest"
 
 # Conda installation path (set this if auto-detection fails)
 # Example: CONDA_PATH="/path/to/miniforge3"
-CONDA_PATH=""
+CONDA_PATH="/home/shetty/.conda"
 
 # Conda environment name
 CONDA_ENV="trial_env"
