@@ -118,11 +118,33 @@ module load miniforge 2>&1 | tee -a "$LOG_FILE"
 
 # Initialize conda for this shell
 # (Required because non-interactive shells don't source .bashrc)
-eval "$(conda shell.bash hook)"
+# Try multiple methods to initialize conda
+if command -v conda &> /dev/null; then
+    eval "$(conda shell.bash hook)"
+elif [ -f "$CONDA_PREFIX/etc/profile.d/conda.sh" ]; then
+    source "$CONDA_PREFIX/etc/profile.d/conda.sh"
+elif [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
+    source "$HOME/miniforge3/etc/profile.d/conda.sh"
+elif [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+    source "$HOME/miniconda3/etc/profile.d/conda.sh"
+elif [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
+    source "$HOME/anaconda3/etc/profile.d/conda.sh"
+else
+    log "ERROR: Could not find conda installation"
+    exit 1
+fi
 
 # Activate conda environment
 log "Activating conda environment: trial_env"
-conda activate trial_env
+conda activate trial_env || { log "ERROR: Failed to activate trial_env"; exit 1; }
+
+# Verify python is available
+if ! command -v python &> /dev/null; then
+    log "ERROR: python not found after activating conda environment"
+    exit 1
+fi
+
+log "Python path: $(which python)"
 pip install --upgrade numpy scipy 2>&1 | tee -a "$LOG_FILE"
 
 # Print Python and package info
