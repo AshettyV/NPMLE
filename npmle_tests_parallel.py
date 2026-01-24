@@ -551,7 +551,7 @@ def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, n_work
 
     # Create plot
     create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds,
-                    npmle_means, npmle_stds, si_min, si_max, output_dir)
+                    npmle_means, npmle_stds, si_min, si_max, B, mu0, true_mu, n_sims, output_dir)
 
     return results_data
 
@@ -625,13 +625,13 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
 
     # Create plot
     create_plot_2pt(n_values, mle_known_means, mle_known_stds, npmle_means, npmle_stds,
-                    prior_atoms, prior_weights, output_dir)
+                    prior_atoms, prior_weights, si_min, si_max, true_mu, n_sims, output_dir)
 
     return results_data
 
 
 def create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds,
-                    npmle_means, npmle_stds, si_min, si_max, output_dir):
+                    npmle_means, npmle_stds, si_min, si_max, B, mu0, true_mu, n_sims, output_dir):
     """Create plot for Subset-of-Signals experiment"""
     fig, ax = plt.subplots(figsize=(12, 8))
 
@@ -659,11 +659,22 @@ def create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds
     ax.set_yscale('log')
     ax.set_xlabel('Sample Size $n$', fontsize=14)
     ax.set_ylabel(r'Absolute Error $|\hat{\mu} - \mu^*|$', fontsize=14)
-    ax.set_title(f'Comparison of Estimators: SoS Prior ($\\sigma_{{min}}={si_min}, \\sigma_{{max}}={si_max}$)',
-                 fontsize=16)
+    ax.set_title(f'Comparison of Estimators: Subset-of-Signals Prior', fontsize=16)
     ax.legend(fontsize=12, loc='upper right')
     ax.grid(True, which='both', linestyle='--', alpha=0.5)
     ax.tick_params(axis='both', which='major', labelsize=12)
+
+    # Add parameter box
+    param_text = (f'Parameters:\n'
+                  f'$\\mu^* = {true_mu}$\n'
+                  f'$\\sigma_{{min}} = {si_min}$\n'
+                  f'$\\sigma_{{max}} = {si_max}$\n'
+                  f'$B = {B}$ (truncation)\n'
+                  f'$\\mu_0 = {mu0}$ (init)\n'
+                  f'Simulations: {n_sims}')
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
+    ax.text(0.02, 0.02, param_text, transform=ax.transAxes, fontsize=10,
+            verticalalignment='bottom', bbox=props)
 
     plt.tight_layout()
     plot_file = os.path.join(output_dir, 'experiment1_sos_comparison.png')
@@ -673,7 +684,7 @@ def create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds
 
 
 def create_plot_2pt(n_values, mle_means, mle_stds, npmle_means, npmle_stds,
-                    prior_atoms, prior_weights, output_dir):
+                    prior_atoms, prior_weights, si_min, si_max, true_mu, n_sims, output_dir):
     """Create plot for Two-Point Prior experiment"""
     fig, ax = plt.subplots(figsize=(12, 8))
 
@@ -696,11 +707,21 @@ def create_plot_2pt(n_values, mle_means, mle_stds, npmle_means, npmle_stds,
     ax.set_yscale('log')
     ax.set_xlabel('Sample Size $n$', fontsize=14)
     ax.set_ylabel(r'Absolute Error $|\hat{\mu} - \mu^*|$', fontsize=14)
-    ax.set_title(f'MLE vs NPMLE: Two-Point Prior ($\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$)',
-                 fontsize=14)
+    ax.set_title(f'MLE vs NPMLE: Two-Point Prior', fontsize=16)
     ax.legend(fontsize=12, loc='upper right')
     ax.grid(True, which='both', linestyle='--', alpha=0.5)
     ax.tick_params(axis='both', which='major', labelsize=12)
+
+    # Add parameter box
+    param_text = (f'Parameters:\n'
+                  f'$\\mu^* = {true_mu}$\n'
+                  f'Prior atoms: $\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$\n'
+                  f'Prior weights: $({prior_weights[0]}, {prior_weights[1]})$\n'
+                  f'NPMLE range: $[{si_min}, {si_max}]$\n'
+                  f'Simulations: {n_sims}')
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
+    ax.text(0.02, 0.02, param_text, transform=ax.transAxes, fontsize=10,
+            verticalalignment='bottom', bbox=props)
 
     plt.tight_layout()
     plot_file = os.path.join(output_dir, 'experiment2_mle_vs_npmle.png')
