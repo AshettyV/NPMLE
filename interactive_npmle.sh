@@ -1,10 +1,30 @@
 #!/bin/bash
 # Interactive session for debugging NPMLE experiments
-# This allocates the node and drops you into a shell
+# Usage:
+#   ./interactive_npmle.sh          # Just allocate and get a shell
+#   ./interactive_npmle.sh --python # Allocate and start Python
+#   ./interactive_npmle.sh --run    # Allocate and run the experiment
 
 # Source config for settings
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/npmle_config.sh"
+
+# Parse arguments
+MODE="shell"
+if [ "$1" == "--python" ]; then
+    MODE="python"
+elif [ "$1" == "--run" ]; then
+    MODE="run"
+elif [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  (none)     Allocate node and drop into shell"
+    echo "  --python   Allocate node and start Python interpreter"
+    echo "  --run      Allocate node and run the experiment"
+    echo "  --help     Show this help message"
+    exit 0
+fi
 
 echo "=============================================="
 echo "Starting interactive session"
@@ -13,21 +33,78 @@ echo "Partition: $PARTITION"
 echo "Node:      $NODELIST"
 echo "CPUs:      $CPUS_PER_TASK"
 echo "Memory:    $MEM"
-echo "Time:      $TIME"
-echo ""
-echo "Once connected, run these commands to test:"
-echo "  module load miniforge"
-echo "  which conda"
-echo "  echo \$MAMBA_ROOT_PREFIX"
-echo "  conda activate $CONDA_ENV"
-echo "  which python"
-echo "=============================================="
+echo "Mode:      $MODE"
 echo ""
 
-salloc \
-    --partition=$PARTITION \
-    --nodelist=$NODELIST \
-    --cpus-per-task=$CPUS_PER_TASK \
-    --mem=$MEM \
-    --time=1:00:00 \
-    --job-name=npmle_debug
+if [ "$MODE" == "shell" ]; then
+    echo "Once connected, run these commands:"
+    echo "  module load miniforge"
+    echo "  source $CONDA_PATH/etc/profile.d/conda.sh"
+    echo "  conda activate $CONDA_ENV"
+    echo "  python"
+    echo "=============================================="
+    echo ""
+
+    salloc \
+        --partition=$PARTITION \
+        --nodelist=$NODELIST \
+        --cpus-per-task=$CPUS_PER_TASK \
+        --mem=$MEM \
+        --time=1:00:00 \
+        --job-name=npmle_debug
+
+elif [ "$MODE" == "python" ]; then
+    echo "Will start Python after setup..."
+    echo "=============================================="
+    echo ""
+
+    srun \
+        --partition=$PARTITION \
+        --nodelist=$NODELIST \
+        --cpus-per-task=$CPUS_PER_TASK \
+        --mem=$MEM \
+        --time=1:00:00 \
+        --job-name=npmle_python \
+        --pty \
+        bash -c "
+            module load miniforge
+            source $CONDA_PATH/etc/profile.d/conda.sh
+            conda activate $CONDA_ENV
+            echo ''
+            echo 'Python environment ready. Starting Python...'
+            echo 'Working directory: \$(pwd)'
+            echo ''
+            python
+        "
+
+elif [ "$MODE" == "run" ]; then
+    echo "Will run experiment interactively..."
+    echo "=============================================="
+    echo ""
+
+    srun \
+        --partition=$PARTITION \
+        --nodelist=$NODELIST \
+        --cpus-per-task=$CPUS_PER_TASK \
+        --mem=$MEM \
+        --time=$TIME \
+        --job-name=npmle_interactive \
+        --pty \
+        bash -c "
+            cd $SCRIPT_DIR
+            module load miniforge
+            source $CONDA_PATH/etc/profile.d/conda.sh
+            conda activate $CONDA_ENV
+            echo ''
+            echo 'Running experiment...'
+            echo ''
+            python npmle_tests_parallel.py \
+                --n-workers $N_WORKERS \
+                --n-sims $N_SIMS \
+                --n-points $N_POINTS \
+                --n-min $N_MIN \
+                --n-max $N_MAX \
+                --output-dir $BASE_DIR/results_interactive_\$(date +%Y%m%d_%H%M%S) \
+                --experiment $EXPERIMENT
+        "
+fi
