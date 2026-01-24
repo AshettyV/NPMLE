@@ -9,6 +9,11 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/parse_config.sh"
 
+# Resource settings for debugging (lighter weight for faster allocation)
+DEBUG_CPUS=4
+DEBUG_MEM="8G"
+DEBUG_TIME="1:00:00"
+
 # Parse arguments
 MODE="shell"
 if [ "$1" == "--python" ]; then
@@ -31,8 +36,13 @@ echo "Starting interactive session"
 echo "=============================================="
 echo "Partition: $PARTITION"
 echo "Node:      $NODELIST"
-echo "CPUs:      $CPUS_PER_TASK"
-echo "Memory:    $MEM"
+if [ "$MODE" == "run" ]; then
+    echo "CPUs:      $CPUS_PER_TASK (full resources for experiment)"
+    echo "Memory:    $MEM"
+else
+    echo "CPUs:      $DEBUG_CPUS (debug mode)"
+    echo "Memory:    $DEBUG_MEM"
+fi
 echo "Mode:      $MODE"
 echo ""
 
@@ -48,9 +58,9 @@ if [ "$MODE" == "shell" ]; then
     salloc \
         --partition=$PARTITION \
         --nodelist=$NODELIST \
-        --cpus-per-task=$CPUS_PER_TASK \
-        --mem=$MEM \
-        --time=1:00:00 \
+        --cpus-per-task=$DEBUG_CPUS \
+        --mem=$DEBUG_MEM \
+        --time=$DEBUG_TIME \
         --job-name=npmle_debug
 
 elif [ "$MODE" == "python" ]; then
@@ -61,9 +71,9 @@ elif [ "$MODE" == "python" ]; then
     srun \
         --partition=$PARTITION \
         --nodelist=$NODELIST \
-        --cpus-per-task=$CPUS_PER_TASK \
-        --mem=$MEM \
-        --time=1:00:00 \
+        --cpus-per-task=$DEBUG_CPUS \
+        --mem=$DEBUG_MEM \
+        --time=$DEBUG_TIME \
         --job-name=npmle_python \
         --pty \
         bash -c "
