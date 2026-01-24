@@ -58,6 +58,7 @@ if [ "$MODE" == "shell" ]; then
     salloc \
         --partition=$PARTITION \
         --nodelist=$NODELIST \
+        --ntasks=1 \
         --cpus-per-task=$DEBUG_CPUS \
         --mem=$DEBUG_MEM \
         --time=$DEBUG_TIME \
@@ -71,6 +72,7 @@ elif [ "$MODE" == "python" ]; then
     srun \
         --partition=$PARTITION \
         --nodelist=$NODELIST \
+        --ntasks=1 \
         --cpus-per-task=$DEBUG_CPUS \
         --mem=$DEBUG_MEM \
         --time=$DEBUG_TIME \
@@ -96,6 +98,7 @@ elif [ "$MODE" == "run" ]; then
     srun \
         --partition=$PARTITION \
         --nodelist=$NODELIST \
+        --ntasks=1 \
         --cpus-per-task=$CPUS_PER_TASK \
         --mem=$MEM \
         --time=$TIME \
