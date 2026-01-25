@@ -792,7 +792,9 @@ def create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds
 
 def create_plot_2pt(n_values, mle_means, mle_stds, npmle_means, npmle_stds,
                     prior_atoms, prior_weights, weight_power, si_min, si_max, true_mu, n_sims, output_dir):
-    """Create plot for Two-Point Prior experiment"""
+    """Create plots for Two-Point Prior experiment"""
+
+    # Plot 1: Main comparison plot with reference lines
     fig, ax = plt.subplots(figsize=(12, 8))
 
     colors = {
@@ -810,12 +812,26 @@ def create_plot_2pt(n_values, mle_means, mle_stds, npmle_means, npmle_stds,
                 fmt='^-', color=colors['npmle'], linewidth=2, markersize=8,
                 capsize=5, capthick=2, label='NPMLE (unknown $G$)', elinewidth=2)
 
+    # Add reference lines for theoretical rates
+    n_ref = np.array(n_values, dtype=float)
+    # 1/sqrt(n) rate (parametric rate)
+    ref_sqrt_n = mle_means[0] * np.sqrt(n_values[0]) / np.sqrt(n_ref)
+    ax.plot(n_ref, ref_sqrt_n, '--', color='gray', alpha=0.7, linewidth=1.5,
+            label=r'$\propto 1/\sqrt{n}$ (parametric)')
+
+    # If dynamic weights, also show the expected NPMLE rate
+    if weight_power > 0:
+        # For w1 = n^(-alpha), theoretical rate might be n^(-1/2 + alpha/2) or similar
+        ref_npmle_rate = npmle_means[len(npmle_means)//2] * (n_values[len(n_values)//2] ** (0.5 - weight_power/2)) / (n_ref ** (0.5 - weight_power/2))
+        ax.plot(n_ref, ref_npmle_rate, ':', color='purple', alpha=0.7, linewidth=1.5,
+                label=rf'$\propto n^{{-1/2 + {weight_power}/2}}$')
+
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel('Sample Size $n$', fontsize=14)
     ax.set_ylabel(r'Absolute Error $|\hat{\mu} - \mu^*|$', fontsize=14)
     ax.set_title(f'MLE vs NPMLE: Two-Point Prior', fontsize=16)
-    ax.legend(fontsize=12, loc='upper right')
+    ax.legend(fontsize=11, loc='upper right')
     ax.grid(True, which='both', linestyle='--', alpha=0.5)
     ax.tick_params(axis='both', which='major', labelsize=12)
 
@@ -839,6 +855,88 @@ def create_plot_2pt(n_values, mle_means, mle_stds, npmle_means, npmle_stds,
     plt.savefig(plot_file, dpi=300, bbox_inches='tight')
     plt.close()
     log(f"Plot saved to {plot_file}")
+
+    # Plot 2: Error ratio plot (NPMLE / MLE)
+    fig2, ax2 = plt.subplots(figsize=(12, 6))
+
+    valid_both = valid_npmle & (mle_means > 0)
+    if np.any(valid_both):
+        ratio = npmle_means[valid_both] / mle_means[valid_both]
+        # Propagate errors: ratio_err = ratio * sqrt((npmle_std/npmle)^2 + (mle_std/mle)^2)
+        ratio_err = ratio * np.sqrt(
+            (npmle_stds[valid_both] / npmle_means[valid_both])**2 +
+            (mle_stds[valid_both] / mle_means[valid_both])**2
+        )
+
+        ax2.errorbar(n_values[valid_both], ratio, yerr=ratio_err,
+                    fmt='s-', color='#9467bd', linewidth=2, markersize=8,
+                    capsize=5, capthick=2, elinewidth=2)
+
+        ax2.axhline(y=1, color='gray', linestyle='--', alpha=0.7, label='Equal performance')
+        ax2.set_xscale('log')
+        ax2.set_xlabel('Sample Size $n$', fontsize=14)
+        ax2.set_ylabel(r'Error Ratio (NPMLE / MLE)', fontsize=14)
+        ax2.set_title(f'NPMLE vs MLE Error Ratio: Two-Point Prior', fontsize=16)
+        ax2.grid(True, which='both', linestyle='--', alpha=0.5)
+        ax2.tick_params(axis='both', which='major', labelsize=12)
+        ax2.legend(fontsize=12)
+
+        # Add parameter box
+        ax2.text(0.02, 0.98, param_text, transform=ax2.transAxes, fontsize=10,
+                verticalalignment='top', bbox=props)
+
+    plt.tight_layout()
+    ratio_plot_file = os.path.join(output_dir, 'experiment2_error_ratio.png')
+    plt.savefig(ratio_plot_file, dpi=300, bbox_inches='tight')
+    plt.close()
+    log(f"Ratio plot saved to {ratio_plot_file}")
+
+    # Plot 3: Combined 2-panel figure
+    fig3, (ax3a, ax3b) = plt.subplots(1, 2, figsize=(16, 6))
+
+    # Left panel: Main comparison
+    ax3a.errorbar(n_values, mle_means, yerr=mle_stds,
+                fmt='o-', color=colors['mle_known'], linewidth=2, markersize=8,
+                capsize=5, capthick=2, label='MLE (known $G$)', elinewidth=2)
+    ax3a.errorbar(n_values[valid_npmle], npmle_means[valid_npmle],
+                yerr=npmle_stds[valid_npmle],
+                fmt='^-', color=colors['npmle'], linewidth=2, markersize=8,
+                capsize=5, capthick=2, label='NPMLE (unknown $G$)', elinewidth=2)
+    ax3a.plot(n_ref, ref_sqrt_n, '--', color='gray', alpha=0.7, linewidth=1.5,
+            label=r'$\propto 1/\sqrt{n}$')
+
+    ax3a.set_xscale('log')
+    ax3a.set_yscale('log')
+    ax3a.set_xlabel('Sample Size $n$', fontsize=14)
+    ax3a.set_ylabel(r'Absolute Error $|\hat{\mu} - \mu^*|$', fontsize=14)
+    ax3a.set_title('Estimator Comparison', fontsize=14)
+    ax3a.legend(fontsize=10, loc='upper right')
+    ax3a.grid(True, which='both', linestyle='--', alpha=0.5)
+
+    # Right panel: Ratio
+    if np.any(valid_both):
+        ax3b.errorbar(n_values[valid_both], ratio, yerr=ratio_err,
+                    fmt='s-', color='#9467bd', linewidth=2, markersize=8,
+                    capsize=5, capthick=2, elinewidth=2)
+        ax3b.axhline(y=1, color='gray', linestyle='--', alpha=0.7)
+        ax3b.set_xscale('log')
+        ax3b.set_xlabel('Sample Size $n$', fontsize=14)
+        ax3b.set_ylabel('Error Ratio (NPMLE / MLE)', fontsize=14)
+        ax3b.set_title('Performance Gap', fontsize=14)
+        ax3b.grid(True, which='both', linestyle='--', alpha=0.5)
+
+    # Add overall title with parameters
+    if weight_power > 0:
+        title_str = f'Two-Point Prior: $\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$, $w_1 = n^{{-{weight_power}}}$'
+    else:
+        title_str = f'Two-Point Prior: $\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$, weights $= ({prior_weights[0]}, {prior_weights[1]})$'
+    fig3.suptitle(title_str, fontsize=14, y=1.02)
+
+    plt.tight_layout()
+    combined_plot_file = os.path.join(output_dir, 'experiment2_combined.png')
+    plt.savefig(combined_plot_file, dpi=300, bbox_inches='tight')
+    plt.close()
+    log(f"Combined plot saved to {combined_plot_file}")
 
 
 def main():
