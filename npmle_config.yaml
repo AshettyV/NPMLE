@@ -24,7 +24,7 @@ experiment:
   n_min: 2
 
   # Log10 of maximum sample size (n_max=5 means 10^5=100,000)
-  n_max: 5
+  n_max: 3
 
   # Which experiment to run: "sos", "2pt", or "both"
   type: "both"
@@ -55,7 +55,7 @@ sos:
   # Power of n for computing m (number of "signal" samples)
   # m = max(1, floor(n^m_power))
   # Default 0.5 gives m ≈ sqrt(n)
-  m_power: 0.5
+  m_power: 0.15
 
 # -----------------------------------------------------------------------------
 # Two-Point Prior (2PT) Experiment Parameters
@@ -83,7 +83,7 @@ two_point:
   # If > 0: weight_1 = n^(-weight_power), weight_2 = 1 - weight_1
   # If 0: use fixed prior_weights above
   # Default 0 uses fixed weights
-  weight_power: 0.5
+  weight_power: 0.15
 
   # Truncation bound B for truncated mean estimator
   B: 10.0
