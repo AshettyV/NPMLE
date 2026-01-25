@@ -88,15 +88,17 @@ yaml_get_two_point() {
     done < "$CONFIG_FILE"
 }
 
-# Get si_min/si_max/weight_power from two_point section
+# Get si_min/si_max/weight_power/B from two_point section
 TPT_SI_MIN_RAW=$(yaml_get_two_point "si_min")
 TPT_SI_MAX_RAW=$(yaml_get_two_point "si_max")
 TPT_WEIGHT_POWER_RAW=$(yaml_get_two_point "weight_power")
+TPT_B_RAW=$(yaml_get_two_point "B")
 
 # Export with defaults
 export TPT_SI_MIN=${TPT_SI_MIN_RAW:-0.5}
 export TPT_SI_MAX=${TPT_SI_MAX_RAW:-100.0}
 export TPT_WEIGHT_POWER=${TPT_WEIGHT_POWER_RAW:-0}
+export TPT_B=${TPT_B_RAW:-10.0}
 
 # Paths
 export BASE_DIR=$(yaml_get "base_dir")
@@ -145,6 +147,7 @@ print_config() {
     echo "  TPT_SI_MIN=$TPT_SI_MIN"
     echo "  TPT_SI_MAX=$TPT_SI_MAX"
     echo "  TPT_WEIGHT_POWER=$TPT_WEIGHT_POWER"
+    echo "  TPT_B=$TPT_B"
     echo ""
     echo "Paths:"
     echo "  BASE_DIR=$BASE_DIR"

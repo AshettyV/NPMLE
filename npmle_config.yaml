@@ -85,6 +85,9 @@ two_point:
   # Default 0 uses fixed weights
   weight_power: 0.5
 
+  # Truncation bound B for truncated mean estimator
+  B: 10.0
+
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------

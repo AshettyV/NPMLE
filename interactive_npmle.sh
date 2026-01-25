@@ -241,6 +241,7 @@ elif [ "$MODE" == "run" ]; then
                 --tpt-weight-power '"$TPT_WEIGHT_POWER"' \
                 --tpt-si-min '"$TPT_SI_MIN"' \
                 --tpt-si-max '"$TPT_SI_MAX"' \
+                --tpt-B '"$TPT_B"' \
                 2>&1 | tee -a $LOG_FILE
 
             log_msg ""

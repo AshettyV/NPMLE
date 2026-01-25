@@ -210,6 +210,7 @@ log "    prior-weights: $TPT_PRIOR_WEIGHTS"
 log "    weight-power: $TPT_WEIGHT_POWER"
 log "    si-min: $TPT_SI_MIN"
 log "    si-max: $TPT_SI_MAX"
+log "    B: $TPT_B"
 
 update_status "RUNNING_EXPERIMENT"
 
@@ -244,6 +245,7 @@ python npmle_tests_parallel.py \
     --tpt-weight-power $TPT_WEIGHT_POWER \
     --tpt-si-min $TPT_SI_MIN \
     --tpt-si-max $TPT_SI_MAX \
+    --tpt-B $TPT_B \
     2>&1 | tee -a "$LOG_FILE"
 
 EXIT_CODE=${PIPESTATUS[0]}
