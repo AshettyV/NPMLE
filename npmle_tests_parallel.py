@@ -483,7 +483,7 @@ def run_single_simulation_sos(args):
 
 def run_single_simulation_2pt(args):
     """Run a single simulation for Two-Point Prior experiment"""
-    s, n, true_mu, prior_atoms, prior_weights, weight_power, si_min, si_max, B, seed = args
+    s, n, true_mu, prior_atoms, prior_weights, weight_power, sigma_power, si_min, si_max, B, seed = args
     rng = np.random.default_rng(seed)
 
     # Compute dynamic weights if weight_power > 0
@@ -494,8 +494,15 @@ def run_single_simulation_2pt(args):
     else:
         weights = prior_weights
 
+    # Compute dynamic variance atoms if sigma_power > 0
+    # sigma_1 stays fixed, sigma_2 scales as n^(sigma_power)
+    if sigma_power > 0:
+        atoms = np.array([prior_atoms[0], n ** sigma_power])
+    else:
+        atoms = prior_atoms
+
     # Generate data from two-point prior
-    X, true_sigmas = generate_data_from_prior(prior_atoms, weights, true_mu, n, rng=rng)
+    X, true_sigmas = generate_data_from_prior(atoms, weights, true_mu, n, rng=rng)
 
     # 1. MLE with known G (known sigmas) - Oracle estimator
     mu_hat_mle_known = mle_known_sigma(X, true_sigmas)
@@ -647,7 +654,7 @@ def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_powe
 
 
 def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
-                       weight_power, si_min, si_max, B, n_workers, output_dir):
+                       weight_power, sigma_power, si_min, si_max, B, n_workers, output_dir):
     """Run Two-Point Prior experiment with parallel processing"""
     log("\n" + "=" * 60)
     log("EXPERIMENT 2: Two-Point Prior (All Estimators)")
@@ -655,6 +662,8 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
     log(f"Prior atoms: {prior_atoms}, weights: {prior_weights}")
     if weight_power > 0:
         log(f"Dynamic weights: w1 = n^(-{weight_power}), w2 = 1 - w1")
+    if sigma_power > 0:
+        log(f"Dynamic variance: sigma_1 = {prior_atoms[0]}, sigma_2 = n^({sigma_power})")
     log(f"n values: {n_values}")
     log(f"Simulations per n: {n_sims}")
     log(f"Using {n_workers} workers")
@@ -668,7 +677,7 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
     for n in n_values:
         for s in range(n_sims):
             seed = base_seed + n * n_sims + s
-            all_args.append((s, n, true_mu, prior_atoms, prior_weights, weight_power, si_min, si_max, B, seed))
+            all_args.append((s, n, true_mu, prior_atoms, prior_weights, weight_power, sigma_power, si_min, si_max, B, seed))
 
     total_sims = len(all_args)
     log(f"Total simulations to run: {total_sims}")
@@ -736,6 +745,7 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
             'prior_atoms': prior_atoms,
             'prior_weights': prior_weights,
             'weight_power': weight_power,
+            'sigma_power': sigma_power,
             'si_min': si_min,
             'si_max': si_max,
             'B': B,
@@ -759,7 +769,7 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
     create_plot_2pt(n_values, mle_known_means, mle_known_stds,
                     median_means, median_stds, trunc_means, trunc_stds,
                     npmle_means, npmle_stds,
-                    prior_atoms, prior_weights, weight_power, si_min, si_max, B, true_mu, n_sims, output_dir)
+                    prior_atoms, prior_weights, weight_power, sigma_power, si_min, si_max, B, true_mu, n_sims, output_dir)
 
     return results_data
 
@@ -821,7 +831,7 @@ def create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds
 def create_plot_2pt(n_values, mle_means, mle_stds,
                     median_means, median_stds, trunc_means, trunc_stds,
                     npmle_means, npmle_stds,
-                    prior_atoms, prior_weights, weight_power, si_min, si_max, B, true_mu, n_sims, output_dir):
+                    prior_atoms, prior_weights, weight_power, sigma_power, si_min, si_max, B, true_mu, n_sims, output_dir):
     """Create plots for Two-Point Prior experiment with all estimators"""
 
     colors = {
@@ -839,9 +849,13 @@ def create_plot_2pt(n_values, mle_means, mle_stds,
         weight_str = f'$w_1 = n^{{-{weight_power}}}$'
     else:
         weight_str = f'$({prior_weights[0]}, {prior_weights[1]})$'
+    if sigma_power > 0:
+        sigma_str = f'$\\sigma_1 = {prior_atoms[0]}, \\sigma_2 = n^{{{sigma_power}}}$'
+    else:
+        sigma_str = f'$\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$'
     param_text = (f'Parameters:\n'
                   f'$\\mu^* = {true_mu}$\n'
-                  f'Prior atoms: $\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$\n'
+                  f'Prior atoms: {sigma_str}\n'
                   f'Prior weights: {weight_str}\n'
                   f'$B = {B}$ (truncation)\n'
                   f'NPMLE range: $[{si_min}, {si_max}]$\n'
@@ -1020,10 +1034,14 @@ def create_plot_2pt(n_values, mle_means, mle_stds,
     ax4b.grid(True, which='both', linestyle='--', alpha=0.5)
 
     # Overall title
-    if weight_power > 0:
-        title_str = f'Two-Point Prior: $\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$, $w_1 = n^{{-{weight_power}}}$'
+    if sigma_power > 0:
+        sigma_title = f'$\\sigma_1 = {prior_atoms[0]}, \\sigma_2 = n^{{{sigma_power}}}$'
     else:
-        title_str = f'Two-Point Prior: $\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$, weights $= ({prior_weights[0]}, {prior_weights[1]})$'
+        sigma_title = f'$\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$'
+    if weight_power > 0:
+        title_str = f'Two-Point Prior: {sigma_title}, $w_1 = n^{{-{weight_power}}}$'
+    else:
+        title_str = f'Two-Point Prior: {sigma_title}, weights $= ({prior_weights[0]}, {prior_weights[1]})$'
     fig4.suptitle(title_str, fontsize=14, y=1.02)
 
     plt.tight_layout()
@@ -1078,6 +1096,8 @@ def main():
                         help='Two-point: maximum sigma for NPMLE (default: 100.0)')
     parser.add_argument('--tpt-weight-power', type=float, default=0.75,
                         help='Two-point: power of n for dynamic weights. If > 0: w1=n^(-power), w2=1-w1. If 0: use fixed weights (default: 0)')
+    parser.add_argument('--tpt-sigma-power', type=float, default=0.0,
+                        help='Two-point: power of n for dynamic variance. If > 0: sigma_1=fixed, sigma_2=n^(power). If 0: use fixed atoms (default: 0)')
     parser.add_argument('--tpt-B', type=float, default=10.0,
                         help='Two-point: truncation bound B for truncated mean estimator (default: 10.0)')
 
@@ -1123,7 +1143,7 @@ def main():
         prior_atoms = np.array(args.tpt_prior_atoms)
         prior_weights = np.array(args.tpt_prior_weights)
         run_experiment_2pt(n_values, args.n_sims, args.true_mu, prior_atoms, prior_weights,
-                          args.tpt_weight_power, args.tpt_si_min, args.tpt_si_max, args.tpt_B,
+                          args.tpt_weight_power, args.tpt_sigma_power, args.tpt_si_min, args.tpt_si_max, args.tpt_B,
                           n_workers, args.output_dir)
 
     overall_elapsed = time.time() - overall_start
