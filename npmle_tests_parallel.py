@@ -1045,7 +1045,7 @@ def main():
                         help='Number of n values to test (default: 15)')
     parser.add_argument('--n-min', type=float, default=2,
                         help='Log10 of minimum n (default: 2, i.e., n=100)')
-    parser.add_argument('--n-max', type=float, default=5,
+    parser.add_argument('--n-max', type=float, default=4,
                         help='Log10 of maximum n (default: 5, i.e., n=100000)')
     parser.add_argument('--output-dir', type=str, default='./results',
                         help='Output directory for results (default: ./results)')
@@ -1076,7 +1076,7 @@ def main():
                         help='Two-point: minimum sigma for NPMLE (default: 0.5)')
     parser.add_argument('--tpt-si-max', type=float, default=100.0,
                         help='Two-point: maximum sigma for NPMLE (default: 100.0)')
-    parser.add_argument('--tpt-weight-power', type=float, default=0.0,
+    parser.add_argument('--tpt-weight-power', type=float, default=0.75,
                         help='Two-point: power of n for dynamic weights. If > 0: w1=n^(-power), w2=1-w1. If 0: use fixed weights (default: 0)')
     parser.add_argument('--tpt-B', type=float, default=10.0,
                         help='Two-point: truncation bound B for truncated mean estimator (default: 10.0)')
