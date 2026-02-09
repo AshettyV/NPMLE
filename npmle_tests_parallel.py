@@ -401,13 +401,7 @@ def mle_location_scale_mixture(N_obs, atoms, weights, mu_init=None):
         return mu_init
 
 
-def mle_location_grid(N_obs, atoms, weights, mu_init = None):
-    grid = np.linspace(np.min(N_obs), np.max(N_obs), 1000)
-    LL = avg_loglikelihood(atoms, weights, grid, N_obs)
-    mu_hat = grid[np.argmax(LL)]
-    return mu_hat
-
-def npmle_alternating_full(N_obs, si_min=0, si_max=np.inf, verbose=False, iter_max=8):
+def npmle_alternating_full(N_obs, si_min=0, si_max=np.inf, verbose=False, iter_max=20):
     """Full NPMLE with alternating optimization for mu and scale distribution"""
     N_obs = np.asarray(N_obs, dtype=float)
     n = len(N_obs)
@@ -433,7 +427,6 @@ def npmle_alternating_full(N_obs, si_min=0, si_max=np.inf, verbose=False, iter_m
 
         # Update mu (fixed scale mixture)
         mu = mle_location_scale_mixture(N_obs, atoms, weights, mu_init=mu)
-        # mu = mle_location_grid(N_obs, atoms, weights, mu_init=mu)
 
         # Check convergence
         ll = avg_loglikelihood(atoms, weights, mu, N_obs)
@@ -453,7 +446,7 @@ def npmle_alternating_full(N_obs, si_min=0, si_max=np.inf, verbose=False, iter_m
 
 def run_single_simulation_sos(args):
     """Run a single simulation for Subset-of-Signals experiment"""
-    s, n, true_mu, si_min, si_max, B, mu0, m_power, skip_truncation, seed = args
+    s, n, true_mu, si_min, si_max, B, mu0, m_power, seed = args
     rng = np.random.default_rng(seed)
 
     m = max(1, int(n ** m_power))
@@ -466,13 +459,10 @@ def run_single_simulation_sos(args):
     mu_hat_median = median_estimator(X)
     err_median = np.abs(mu_hat_median - true_mu)
 
-    # 2. Iterative truncation estimator (optional - can be slow)
-    if not skip_truncation:
-        mu_hat_trunc = iterative_truncation_estimator(
-            N_obs=X, B=B, mu0=mu0, mu_star=true_mu, m=m, n=n, return_path=False)
-        err_trunc = np.abs(mu_hat_trunc - true_mu)
-    else:
-        err_trunc = np.nan
+    # 2. Iterative truncation estimator
+    mu_hat_trunc = iterative_truncation_estimator(
+        N_obs=X, B=B, mu0=mu0, mu_star=true_mu, m=m, n=n, return_path=False)
+    err_trunc = np.abs(mu_hat_trunc - true_mu)
 
     # 3. NPMLE estimator
     try:
@@ -493,7 +483,7 @@ def run_single_simulation_sos(args):
 
 def run_single_simulation_2pt(args):
     """Run a single simulation for Two-Point Prior experiment"""
-    s, n, true_mu, prior_atoms, prior_weights, weight_power, si_min, si_max, B, seed = args
+    s, n, true_mu, prior_atoms, prior_weights, weight_power, sigma_power, si_min, si_max, B, seed = args
     rng = np.random.default_rng(seed)
 
     # Compute dynamic weights if weight_power > 0
@@ -504,75 +494,27 @@ def run_single_simulation_2pt(args):
     else:
         weights = prior_weights
 
+    # Compute dynamic variance atoms if sigma_power > 0
+    # sigma_1 stays fixed, sigma_2 scales as n^(sigma_power)
+    if sigma_power > 0:
+        atoms = np.array([prior_atoms[0], n ** sigma_power])
+    else:
+        atoms = prior_atoms
+
     # Generate data from two-point prior
-    X, true_sigmas = generate_data_from_prior(prior_atoms, weights, true_mu, n, rng=rng)
+    X, true_sigmas = generate_data_from_prior(atoms, weights, true_mu, n, rng=rng)
 
-    # 1. MLE with known sigmas (Oracle) - knows exact sigma for each observation
-    mu_hat_mle_oracle = mle_known_sigma(X, true_sigmas)
-    err_mle_oracle = np.abs(mu_hat_mle_oracle - true_mu)
+    # 1. MLE with known G (known sigmas) - Oracle estimator
+    mu_hat_mle_known = mle_known_sigma(X, true_sigmas)
+    err_mle_known = np.abs(mu_hat_mle_known - true_mu)
 
-    # 2. MLE with known G (known prior atoms/weights, unknown per-observation sigmas)
-    try:
-        mu_hat_mle_known_G = mle_location_scale_mixture(X, prior_atoms, weights, mu_init=np.median(X))
-        err_mle_known_G = np.abs(mu_hat_mle_known_G - true_mu)
-    except Exception as e:
-        err_mle_known_G = np.nan
-
-    # 3. Median estimator
+    # 2. Median estimator
     mu_hat_median = median_estimator(X)
     err_median = np.abs(mu_hat_median - true_mu)
 
-    # 4. Truncated mean estimator (simple clip-and-mean)
-    # mu_hat_trunc = np.mean(np.clip(X, -B, B))
-    # err_trunc = np.abs(mu_hat_trunc - true_mu)
-
-    # 5. NPMLE estimator (unknown G)
-    try:
-        _, _, mu_hat_npmle = npmle_alternating_full(
-            N_obs=X, si_min=si_min, si_max=si_max, iter_max=8, verbose=False)
-        err_npmle = np.abs(mu_hat_npmle - true_mu)
-    except Exception as e:
-        err_npmle = np.nan
-
-    return {
-        'n': n,
-        'sim': s,
-        'err_mle_oracle': err_mle_oracle,
-        'err_mle_known_G': err_mle_known_G,
-        'err_median': err_median,
-        #'err_trunc': err_trunc,
-        'err_npmle': err_npmle
-    }
-
-
-def run_single_simulation_3pt(args):
-    """Run a single simulation for Three-Point Prior experiment"""
-    s, n, true_mu, prior_atoms, prior_weights, si_min, si_max, seed = args
-    rng = np.random.default_rng(seed)
-
-    # Generate data from three-point prior using sample_scale_mixture
-    X = sample_scale_mixture(true_mu, prior_atoms, prior_weights, n=n, rng=rng)
-    
-    # Get the true sigmas for each observation (for oracle estimator)
-    # We need to regenerate component assignments to get the true sigmas
-    rng2 = np.random.default_rng(seed)  # Reset seed to get same assignments
-    comps = rng2.choice(len(prior_weights), size=n, p=prior_weights)
-    true_sigmas = prior_atoms[comps]
-
-    # 1. MLE with known sigmas (Oracle) - knows exact sigma for each observation
-    mu_hat_mle_oracle = mle_known_sigma(X, true_sigmas)
-    err_mle_oracle = np.abs(mu_hat_mle_oracle - true_mu)
-
-    # 2. MLE with known G (known prior atoms/weights, unknown per-observation sigmas)
-    try:
-        mu_hat_mle_known_G = mle_location_scale_mixture(X, prior_atoms, prior_weights, mu_init=np.median(X))
-        err_mle_known_G = np.abs(mu_hat_mle_known_G - true_mu)
-    except Exception as e:
-        err_mle_known_G = np.nan
-
-    # 3. Median estimator
-    mu_hat_median = median_estimator(X)
-    err_median = np.abs(mu_hat_median - true_mu)
+    # 3. Truncated mean estimator (simple clip-and-mean)
+    mu_hat_trunc = np.mean(np.clip(X, -B, B))
+    err_trunc = np.abs(mu_hat_trunc - true_mu)
 
     # 4. NPMLE estimator (unknown G)
     try:
@@ -585,9 +527,9 @@ def run_single_simulation_3pt(args):
     return {
         'n': n,
         'sim': s,
-        'err_mle_oracle': err_mle_oracle,
-        'err_mle_known_G': err_mle_known_G,
+        'err_mle_known': err_mle_known,
         'err_median': err_median,
+        'err_trunc': err_trunc,
         'err_npmle': err_npmle
     }
 
@@ -608,7 +550,7 @@ def compute_stats(results_dict, n_values):
     return np.array(means), np.array(stds)
 
 
-def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_power, skip_truncation, n_workers, output_dir):
+def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_power, n_workers, output_dir):
     """Run Subset-of-Signals experiment with parallel processing"""
     log("=" * 60)
     log("EXPERIMENT 1: Subset-of-Signals Prior")
@@ -617,7 +559,6 @@ def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_powe
     log(f"Simulations per n: {n_sims}")
     log(f"Using {n_workers} workers")
     log(f"Parameters: si_min={si_min}, si_max={si_max}, B={B}, mu0={mu0}, m_power={m_power}")
-    log(f"Skip truncation estimator: {skip_truncation}")
     log("=" * 60)
 
     # Prepare all simulation arguments
@@ -626,7 +567,7 @@ def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_powe
     for n in n_values:
         for s in range(n_sims):
             seed = base_seed + n * n_sims + s
-            all_args.append((s, n, true_mu, si_min, si_max, B, mu0, m_power, skip_truncation, seed))
+            all_args.append((s, n, true_mu, si_min, si_max, B, mu0, m_power, seed))
 
     total_sims = len(all_args)
     log(f"Total simulations to run: {total_sims}")
@@ -713,7 +654,7 @@ def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_powe
 
 
 def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
-                       weight_power, si_min, si_max, B, n_workers, output_dir):
+                       weight_power, sigma_power, si_min, si_max, B, n_workers, output_dir):
     """Run Two-Point Prior experiment with parallel processing"""
     log("\n" + "=" * 60)
     log("EXPERIMENT 2: Two-Point Prior (All Estimators)")
@@ -721,6 +662,8 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
     log(f"Prior atoms: {prior_atoms}, weights: {prior_weights}")
     if weight_power > 0:
         log(f"Dynamic weights: w1 = n^(-{weight_power}), w2 = 1 - w1")
+    if sigma_power > 0:
+        log(f"Dynamic variance: sigma_1 = {prior_atoms[0]}, sigma_2 = n^({sigma_power})")
     log(f"n values: {n_values}")
     log(f"Simulations per n: {n_sims}")
     log(f"Using {n_workers} workers")
@@ -734,7 +677,7 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
     for n in n_values:
         for s in range(n_sims):
             seed = base_seed + n * n_sims + s
-            all_args.append((s, n, true_mu, prior_atoms, prior_weights, weight_power, si_min, si_max, B, seed))
+            all_args.append((s, n, true_mu, prior_atoms, prior_weights, weight_power, sigma_power, si_min, si_max, B, seed))
 
     total_sims = len(all_args)
     log(f"Total simulations to run: {total_sims}")
@@ -764,23 +707,20 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
     log(f"Completed {len(results)} simulations in {elapsed:.2f} seconds ({len(results)/elapsed:.1f} sims/sec)")
 
     # Organize results
-    results_mle_oracle = {n: [] for n in n_values}
-    results_mle_known_G = {n: [] for n in n_values}
+    results_mle_known = {n: [] for n in n_values}
     results_median = {n: [] for n in n_values}
     results_trunc = {n: [] for n in n_values}
     results_npmle = {n: [] for n in n_values}
 
     for r in results:
         n = r['n']
-        results_mle_oracle[n].append(r['err_mle_oracle'])
-        results_mle_known_G[n].append(r['err_mle_known_G'])
+        results_mle_known[n].append(r['err_mle_known'])
         results_median[n].append(r['err_median'])
-        #results_trunc[n].append(r['err_trunc'])
+        results_trunc[n].append(r['err_trunc'])
         results_npmle[n].append(r['err_npmle'])
 
     # Compute statistics
-    mle_oracle_means, mle_oracle_stds = compute_stats(results_mle_oracle, n_values)
-    mle_known_G_means, mle_known_G_stds = compute_stats(results_mle_known_G, n_values)
+    mle_known_means, mle_known_stds = compute_stats(results_mle_known, n_values)
     median_means, median_stds = compute_stats(results_median, n_values)
     trunc_means, trunc_stds = compute_stats(results_trunc, n_values)
     npmle_means, npmle_stds = compute_stats(results_npmle, n_values)
@@ -788,15 +728,12 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
     # Save results
     results_data = {
         'n_values': n_values,
-        'results_mle_oracle': results_mle_oracle,
-        'results_mle_known_G': results_mle_known_G,
+        'results_mle_known': results_mle_known,
         'results_median': results_median,
         'results_trunc': results_trunc,
         'results_npmle': results_npmle,
-        'mle_oracle_means': mle_oracle_means,
-        'mle_oracle_stds': mle_oracle_stds,
-        'mle_known_G_means': mle_known_G_means,
-        'mle_known_G_stds': mle_known_G_stds,
+        'mle_known_means': mle_known_means,
+        'mle_known_stds': mle_known_stds,
         'median_means': median_means,
         'median_stds': median_stds,
         'trunc_means': trunc_means,
@@ -808,6 +745,7 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
             'prior_atoms': prior_atoms,
             'prior_weights': prior_weights,
             'weight_power': weight_power,
+            'sigma_power': sigma_power,
             'si_min': si_min,
             'si_max': si_max,
             'B': B,
@@ -822,133 +760,16 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
 
     # Log summary statistics
     log(f"Summary - Mean errors at largest n={n_values[-1]}:")
-    log(f"  MLE (Oracle):  {mle_oracle_means[-1]:.6f} +/- {mle_oracle_stds[-1]:.6f}")
-    log(f"  MLE (known G): {mle_known_G_means[-1]:.6f} +/- {mle_known_G_stds[-1]:.6f}")
+    log(f"  MLE (known G): {mle_known_means[-1]:.6f} +/- {mle_known_stds[-1]:.6f}")
     log(f"  Median:        {median_means[-1]:.6f} +/- {median_stds[-1]:.6f}")
-    # log(f"  Truncated:     {trunc_means[-1]:.6f} +/- {trunc_stds[-1]:.6f}")
+    log(f"  Truncated:     {trunc_means[-1]:.6f} +/- {trunc_stds[-1]:.6f}")
     log(f"  NPMLE:         {npmle_means[-1]:.6f} +/- {npmle_stds[-1]:.6f}")
 
     # Create plot
-    create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
-                    mle_known_G_means, mle_known_G_stds,
+    create_plot_2pt(n_values, mle_known_means, mle_known_stds,
                     median_means, median_stds, trunc_means, trunc_stds,
                     npmle_means, npmle_stds,
-                    prior_atoms, prior_weights, weight_power, si_min, si_max, B, true_mu, n_sims, output_dir)
-
-    return results_data
-
-
-def run_experiment_3pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
-                       si_min, si_max, n_workers, output_dir):
-    """Run Three-Point Prior experiment with parallel processing"""
-    log("\n" + "=" * 60)
-    log("EXPERIMENT 3: Three-Point Prior (All Estimators)")
-    log("=" * 60)
-    log(f"Prior atoms: {prior_atoms}")
-    log(f"Prior weights: {prior_weights}")
-    log(f"n values: {n_values}")
-    log(f"Simulations per n: {n_sims}")
-    log(f"Using {n_workers} workers")
-    log(f"NPMLE search range: [{si_min}, {si_max}]")
-    log("=" * 60)
-
-    # Prepare all simulation arguments
-    all_args = []
-    base_seed = 20000  # Different base seed from other experiments
-    for n in n_values:
-        for s in range(n_sims):
-            seed = base_seed + n * n_sims + s
-            all_args.append((s, n, true_mu, prior_atoms, prior_weights, si_min, si_max, seed))
-
-    total_sims = len(all_args)
-    log(f"Total simulations to run: {total_sims}")
-
-    # Run in parallel with progress tracking
-    start_time = time.time()
-    results = []
-    completed = 0
-    last_progress = 0
-
-    with Pool(n_workers) as pool:
-        for result in pool.imap_unordered(run_single_simulation_3pt, all_args):
-            results.append(result)
-            completed += 1
-
-            # Log progress every 10% or at key milestones
-            progress = int(100 * completed / total_sims)
-            if progress >= last_progress + 10 or completed == total_sims:
-                elapsed_so_far = time.time() - start_time
-                rate = completed / elapsed_so_far if elapsed_so_far > 0 else 0
-                eta = (total_sims - completed) / rate if rate > 0 else 0
-                log(f"Progress: {completed}/{total_sims} ({progress}%) | "
-                    f"Rate: {rate:.1f} sims/sec | ETA: {eta:.0f}s")
-                last_progress = progress
-
-    elapsed = time.time() - start_time
-    log(f"Completed {len(results)} simulations in {elapsed:.2f} seconds ({len(results)/elapsed:.1f} sims/sec)")
-
-    # Organize results
-    results_mle_oracle = {n: [] for n in n_values}
-    results_mle_known_G = {n: [] for n in n_values}
-    results_median = {n: [] for n in n_values}
-    results_npmle = {n: [] for n in n_values}
-
-    for r in results:
-        n = r['n']
-        results_mle_oracle[n].append(r['err_mle_oracle'])
-        results_mle_known_G[n].append(r['err_mle_known_G'])
-        results_median[n].append(r['err_median'])
-        results_npmle[n].append(r['err_npmle'])
-
-    # Compute statistics
-    mle_oracle_means, mle_oracle_stds = compute_stats(results_mle_oracle, n_values)
-    mle_known_G_means, mle_known_G_stds = compute_stats(results_mle_known_G, n_values)
-    median_means, median_stds = compute_stats(results_median, n_values)
-    npmle_means, npmle_stds = compute_stats(results_npmle, n_values)
-
-    # Save results
-    results_data = {
-        'n_values': n_values,
-        'results_mle_oracle': results_mle_oracle,
-        'results_mle_known_G': results_mle_known_G,
-        'results_median': results_median,
-        'results_npmle': results_npmle,
-        'mle_oracle_means': mle_oracle_means,
-        'mle_oracle_stds': mle_oracle_stds,
-        'mle_known_G_means': mle_known_G_means,
-        'mle_known_G_stds': mle_known_G_stds,
-        'median_means': median_means,
-        'median_stds': median_stds,
-        'npmle_means': npmle_means,
-        'npmle_stds': npmle_stds,
-        'params': {
-            'true_mu': true_mu,
-            'prior_atoms': prior_atoms,
-            'prior_weights': prior_weights,
-            'si_min': si_min,
-            'si_max': si_max,
-            'n_sims': n_sims
-        }
-    }
-
-    results_file = os.path.join(output_dir, 'experiment3_3pt_results.pkl')
-    with open(results_file, 'wb') as f:
-        pickle.dump(results_data, f)
-    log(f"Results saved to {results_file}")
-
-    # Log summary statistics
-    log(f"Summary - Mean errors at largest n={n_values[-1]}:")
-    log(f"  MLE (Oracle):  {mle_oracle_means[-1]:.6f} +/- {mle_oracle_stds[-1]:.6f}")
-    log(f"  MLE (known G): {mle_known_G_means[-1]:.6f} +/- {mle_known_G_stds[-1]:.6f}")
-    log(f"  Median:        {median_means[-1]:.6f} +/- {median_stds[-1]:.6f}")
-    log(f"  NPMLE:         {npmle_means[-1]:.6f} +/- {npmle_stds[-1]:.6f}")
-
-    # Create plot
-    create_plot_3pt(n_values, mle_oracle_means, mle_oracle_stds,
-                    mle_known_G_means, mle_known_G_stds,
-                    median_means, median_stds,
-                    npmle_means, npmle_stds,
-                    prior_atoms, prior_weights, si_min, si_max, true_mu, n_sims, output_dir)
+                    prior_atoms, prior_weights, weight_power, sigma_power, si_min, si_max, B, true_mu, n_sims, output_dir)
 
     return results_data
 
@@ -1007,23 +828,20 @@ def create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds
     log(f"Plot saved to {plot_file}")
 
 
-def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
-                    mle_known_G_means, mle_known_G_stds,
+def create_plot_2pt(n_values, mle_means, mle_stds,
                     median_means, median_stds, trunc_means, trunc_stds,
                     npmle_means, npmle_stds,
-                    prior_atoms, prior_weights, weight_power, si_min, si_max, B, true_mu, n_sims, output_dir):
+                    prior_atoms, prior_weights, weight_power, sigma_power, si_min, si_max, B, true_mu, n_sims, output_dir):
     """Create plots for Two-Point Prior experiment with all estimators"""
 
     colors = {
-        'mle_oracle': '#d62728',   # red - Oracle (knows exact sigmas)
-        'mle_known_G': '#9467bd',  # purple - MLE with known G (knows prior, not per-obs sigmas)
-        'median': '#1f77b4',       # blue
-        'truncation': '#ff7f0e',   # orange
-        'npmle': '#2ca02c'         # green
+        'mle_known': '#d62728',  # red
+        'median': '#1f77b4',      # blue
+        'truncation': '#ff7f0e',  # orange
+        'npmle': '#2ca02c'        # green
     }
 
     valid_npmle = ~np.isnan(npmle_means)
-    valid_mle_known_G = ~np.isnan(mle_known_G_means)
     n_ref = np.array(n_values, dtype=float)
 
     # Parameter text for all plots
@@ -1031,9 +849,13 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
         weight_str = f'$w_1 = n^{{-{weight_power}}}$'
     else:
         weight_str = f'$({prior_weights[0]}, {prior_weights[1]})$'
+    if sigma_power > 0:
+        sigma_str = f'$\\sigma_1 = {prior_atoms[0]}, \\sigma_2 = n^{{{sigma_power}}}$'
+    else:
+        sigma_str = f'$\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$'
     param_text = (f'Parameters:\n'
                   f'$\\mu^* = {true_mu}$\n'
-                  f'Prior atoms: $\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$\n'
+                  f'Prior atoms: {sigma_str}\n'
                   f'Prior weights: {weight_str}\n'
                   f'$B = {B}$ (truncation)\n'
                   f'NPMLE range: $[{si_min}, {si_max}]$\n'
@@ -1045,16 +867,10 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
     # =========================================================================
     fig, ax = plt.subplots(figsize=(12, 8))
 
-    # MLE Oracle (known per-observation sigmas)
-    ax.errorbar(n_values, mle_oracle_means, yerr=mle_oracle_stds,
-                fmt='o-', color=colors['mle_oracle'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='MLE Oracle (known $\\sigma_i$)', elinewidth=2)
-
-    # MLE with known G (known prior, unknown per-observation sigmas)
-    ax.errorbar(n_values[valid_mle_known_G], mle_known_G_means[valid_mle_known_G],
-                yerr=mle_known_G_stds[valid_mle_known_G],
-                fmt='p-', color=colors['mle_known_G'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='MLE (known $G$)', elinewidth=2)
+    # MLE (known G) - Oracle
+    ax.errorbar(n_values, mle_means, yerr=mle_stds,
+                fmt='o-', color=colors['mle_known'], linewidth=2, markersize=8,
+                capsize=5, capthick=2, label='MLE (known $G$) - Oracle', elinewidth=2)
 
     # Median
     ax.errorbar(n_values, median_means, yerr=median_stds,
@@ -1062,9 +878,9 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
                 capsize=5, capthick=2, label='Median', elinewidth=2)
 
     # Truncated Mean
-    # ax.errorbar(n_values, trunc_means, yerr=trunc_stds,
-    #             fmt='s-', color=colors['truncation'], linewidth=2, markersize=8,
-    #             capsize=5, capthick=2, label=f'Truncated Mean (B={B})', elinewidth=2)
+    ax.errorbar(n_values, trunc_means, yerr=trunc_stds,
+                fmt='s-', color=colors['truncation'], linewidth=2, markersize=8,
+                capsize=5, capthick=2, label=f'Truncated Mean (B={B})', elinewidth=2)
 
     # NPMLE
     ax.errorbar(n_values[valid_npmle], npmle_means[valid_npmle],
@@ -1073,7 +889,7 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
                 capsize=5, capthick=2, label='NPMLE (unknown $G$)', elinewidth=2)
 
     # Reference line: 1/sqrt(n)
-    ref_sqrt_n = mle_oracle_means[0] * np.sqrt(n_values[0]) / np.sqrt(n_ref)
+    ref_sqrt_n = mle_means[0] * np.sqrt(n_values[0]) / np.sqrt(n_ref)
     ax.plot(n_ref, ref_sqrt_n, '--', color='gray', alpha=0.7, linewidth=1.5,
             label=r'$\propto 1/\sqrt{n}$ (parametric)')
 
@@ -1095,17 +911,12 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
     log(f"Plot saved to {plot_file}")
 
     # =========================================================================
-    # Plot 2: MLE (Oracle vs known G) vs NPMLE comparison
+    # Plot 2: MLE vs NPMLE only (cleaner comparison)
     # =========================================================================
     fig2, ax2 = plt.subplots(figsize=(12, 8))
 
-    ax2.errorbar(n_values, mle_oracle_means, yerr=mle_oracle_stds,
-                fmt='o-', color=colors['mle_oracle'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='MLE Oracle (known $\\sigma_i$)', elinewidth=2)
-
-    ax2.errorbar(n_values[valid_mle_known_G], mle_known_G_means[valid_mle_known_G],
-                yerr=mle_known_G_stds[valid_mle_known_G],
-                fmt='p-', color=colors['mle_known_G'], linewidth=2, markersize=8,
+    ax2.errorbar(n_values, mle_means, yerr=mle_stds,
+                fmt='o-', color=colors['mle_known'], linewidth=2, markersize=8,
                 capsize=5, capthick=2, label='MLE (known $G$)', elinewidth=2)
 
     ax2.errorbar(n_values[valid_npmle], npmle_means[valid_npmle],
@@ -1120,7 +931,7 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
     ax2.set_yscale('log')
     ax2.set_xlabel('Sample Size $n$', fontsize=14)
     ax2.set_ylabel(r'Absolute Error $|\hat{\mu} - \mu^*|$', fontsize=14)
-    ax2.set_title(f'MLE Variants vs NPMLE: Two-Point Prior', fontsize=16)
+    ax2.set_title(f'MLE vs NPMLE: Two-Point Prior', fontsize=16)
     ax2.legend(fontsize=11, loc='upper right')
     ax2.grid(True, which='both', linestyle='--', alpha=0.5)
     ax2.tick_params(axis='both', which='major', labelsize=12)
@@ -1134,42 +945,35 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
     log(f"Plot saved to {plot_file2}")
 
     # =========================================================================
-    # Plot 3: Error ratio plot (each estimator / MLE Oracle)
+    # Plot 3: Error ratio plot (each estimator / MLE)
     # =========================================================================
     fig3, ax3 = plt.subplots(figsize=(12, 6))
 
-    valid_oracle = mle_oracle_means > 0
+    valid_mle = mle_means > 0
 
-    # MLE known G / MLE Oracle ratio
-    valid_both_G = valid_mle_known_G & valid_oracle
-    if np.any(valid_both_G):
-        ratio_mle_known_G = mle_known_G_means[valid_both_G] / mle_oracle_means[valid_both_G]
-        ax3.plot(n_values[valid_both_G], ratio_mle_known_G, 'p-', color=colors['mle_known_G'],
-                linewidth=2, markersize=8, label='MLE (known $G$) / Oracle')
-
-    # NPMLE / MLE Oracle ratio
-    valid_both = valid_npmle & valid_oracle
+    # NPMLE / MLE ratio
+    valid_both = valid_npmle & valid_mle
     if np.any(valid_both):
-        ratio_npmle = npmle_means[valid_both] / mle_oracle_means[valid_both]
+        ratio_npmle = npmle_means[valid_both] / mle_means[valid_both]
         ax3.plot(n_values[valid_both], ratio_npmle, '^-', color=colors['npmle'],
-                linewidth=2, markersize=8, label='NPMLE / Oracle')
+                linewidth=2, markersize=8, label='NPMLE / MLE')
 
-    # Median / MLE Oracle ratio
-    if np.any(valid_oracle):
-        ratio_median = median_means[valid_oracle] / mle_oracle_means[valid_oracle]
-        ax3.plot(n_values[valid_oracle], ratio_median, 'd-', color=colors['median'],
-                linewidth=2, markersize=8, label='Median / Oracle')
+    # Median / MLE ratio
+    if np.any(valid_mle):
+        ratio_median = median_means[valid_mle] / mle_means[valid_mle]
+        ax3.plot(n_values[valid_mle], ratio_median, 'd-', color=colors['median'],
+                linewidth=2, markersize=8, label='Median / MLE')
 
-    # Truncated / MLE Oracle ratio
-    # if np.any(valid_oracle):
-    #     ratio_trunc = trunc_means[valid_oracle] / mle_oracle_means[valid_oracle]
-    #     ax3.plot(n_values[valid_oracle], ratio_trunc, 's-', color=colors['truncation'],
-    #             linewidth=2, markersize=8, label='Truncated / Oracle')
+    # Truncated / MLE ratio
+    if np.any(valid_mle):
+        ratio_trunc = trunc_means[valid_mle] / mle_means[valid_mle]
+        ax3.plot(n_values[valid_mle], ratio_trunc, 's-', color=colors['truncation'],
+                linewidth=2, markersize=8, label='Truncated / MLE')
 
-    ax3.axhline(y=1, color=colors['mle_oracle'], linestyle='--', alpha=0.7, label='Oracle')
+    ax3.axhline(y=1, color='gray', linestyle='--', alpha=0.7, label='Oracle (MLE)')
     ax3.set_xscale('log')
     ax3.set_xlabel('Sample Size $n$', fontsize=14)
-    ax3.set_ylabel(r'Error Ratio (Estimator / Oracle)', fontsize=14)
+    ax3.set_ylabel(r'Error Ratio (Estimator / MLE)', fontsize=14)
     ax3.set_title(f'Performance Relative to Oracle MLE: Two-Point Prior', fontsize=16)
     ax3.grid(True, which='both', linestyle='--', alpha=0.5)
     ax3.tick_params(axis='both', which='major', labelsize=12)
@@ -1189,19 +993,15 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
     fig4, (ax4a, ax4b) = plt.subplots(1, 2, figsize=(16, 6))
 
     # Left panel: All estimators
-    ax4a.errorbar(n_values, mle_oracle_means, yerr=mle_oracle_stds,
-                fmt='o-', color=colors['mle_oracle'], linewidth=2, markersize=6,
-                capsize=3, label='Oracle', elinewidth=1.5)
-    ax4a.errorbar(n_values[valid_mle_known_G], mle_known_G_means[valid_mle_known_G],
-                yerr=mle_known_G_stds[valid_mle_known_G],
-                fmt='p-', color=colors['mle_known_G'], linewidth=2, markersize=6,
-                capsize=3, label='MLE (known $G$)', elinewidth=1.5)
+    ax4a.errorbar(n_values, mle_means, yerr=mle_stds,
+                fmt='o-', color=colors['mle_known'], linewidth=2, markersize=6,
+                capsize=3, label='MLE (Oracle)', elinewidth=1.5)
     ax4a.errorbar(n_values, median_means, yerr=median_stds,
                 fmt='d-', color=colors['median'], linewidth=2, markersize=6,
                 capsize=3, label='Median', elinewidth=1.5)
-    # ax4a.errorbar(n_values, trunc_means, yerr=trunc_stds,
-    #             fmt='s-', color=colors['truncation'], linewidth=2, markersize=6,
-    #             capsize=3, label='Truncated', elinewidth=1.5)
+    ax4a.errorbar(n_values, trunc_means, yerr=trunc_stds,
+                fmt='s-', color=colors['truncation'], linewidth=2, markersize=6,
+                capsize=3, label='Truncated', elinewidth=1.5)
     ax4a.errorbar(n_values[valid_npmle], npmle_means[valid_npmle],
                 yerr=npmle_stds[valid_npmle],
                 fmt='^-', color=colors['npmle'], linewidth=2, markersize=6,
@@ -1217,256 +1017,35 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
     ax4a.grid(True, which='both', linestyle='--', alpha=0.5)
 
     # Right panel: Ratios
-    if np.any(valid_both_G):
-        ax4b.plot(n_values[valid_both_G], ratio_mle_known_G, 'p-', color=colors['mle_known_G'],
-                linewidth=2, markersize=6, label='MLE (known $G$)')
     if np.any(valid_both):
         ax4b.plot(n_values[valid_both], ratio_npmle, '^-', color=colors['npmle'],
                 linewidth=2, markersize=6, label='NPMLE')
-    if np.any(valid_oracle):
-        ax4b.plot(n_values[valid_oracle], ratio_median, 'd-', color=colors['median'],
+    if np.any(valid_mle):
+        ax4b.plot(n_values[valid_mle], ratio_median, 'd-', color=colors['median'],
                 linewidth=2, markersize=6, label='Median')
-        # ax4b.plot(n_values[valid_oracle], ratio_trunc, 's-', color=colors['truncation'],
-        #         linewidth=2, markersize=6, label='Truncated')
-    ax4b.axhline(y=1, color=colors['mle_oracle'], linestyle='--', alpha=0.7)
+        ax4b.plot(n_values[valid_mle], ratio_trunc, 's-', color=colors['truncation'],
+                linewidth=2, markersize=6, label='Truncated')
+    ax4b.axhline(y=1, color='gray', linestyle='--', alpha=0.7)
     ax4b.set_xscale('log')
     ax4b.set_xlabel('Sample Size $n$', fontsize=14)
-    ax4b.set_ylabel('Error Ratio (/ Oracle)', fontsize=14)
+    ax4b.set_ylabel('Error Ratio (/ MLE)', fontsize=14)
     ax4b.set_title('Relative to Oracle', fontsize=14)
     ax4b.legend(fontsize=9, loc='best')
     ax4b.grid(True, which='both', linestyle='--', alpha=0.5)
 
     # Overall title
-    if weight_power > 0:
-        title_str = f'Two-Point Prior: $\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$, $w_1 = n^{{-{weight_power}}}$'
+    if sigma_power > 0:
+        sigma_title = f'$\\sigma_1 = {prior_atoms[0]}, \\sigma_2 = n^{{{sigma_power}}}$'
     else:
-        title_str = f'Two-Point Prior: $\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$, weights $= ({prior_weights[0]}, {prior_weights[1]})$'
+        sigma_title = f'$\\sigma \\in {{{prior_atoms[0]}, {prior_atoms[1]}}}$'
+    if weight_power > 0:
+        title_str = f'Two-Point Prior: {sigma_title}, $w_1 = n^{{-{weight_power}}}$'
+    else:
+        title_str = f'Two-Point Prior: {sigma_title}, weights $= ({prior_weights[0]}, {prior_weights[1]})$'
     fig4.suptitle(title_str, fontsize=14, y=1.02)
 
     plt.tight_layout()
     combined_plot_file = os.path.join(output_dir, 'experiment2_combined.png')
-    plt.savefig(combined_plot_file, dpi=300, bbox_inches='tight')
-    plt.close()
-    log(f"Combined plot saved to {combined_plot_file}")
-
-
-def create_plot_3pt(n_values, mle_oracle_means, mle_oracle_stds,
-                    mle_known_G_means, mle_known_G_stds,
-                    median_means, median_stds,
-                    npmle_means, npmle_stds,
-                    prior_atoms, prior_weights, si_min, si_max, true_mu, n_sims, output_dir):
-    """Create plots for Three-Point Prior experiment with all estimators"""
-
-    colors = {
-        'mle_oracle': '#d62728',   # red - Oracle (knows exact sigmas)
-        'mle_known_G': '#9467bd',  # purple - MLE with known G
-        'median': '#1f77b4',       # blue
-        'npmle': '#2ca02c'         # green
-    }
-
-    valid_npmle = ~np.isnan(npmle_means)
-    valid_mle_known_G = ~np.isnan(mle_known_G_means)
-    n_ref = np.array(n_values, dtype=float)
-
-    # Format atoms and weights for display
-    atoms_str = ', '.join([f'{a:.2f}' for a in prior_atoms])
-    weights_str = ', '.join([f'{w:.2f}' for w in prior_weights])
-
-    # Parameter text for all plots
-    param_text = (f'Parameters:\n'
-                  f'$\\mu^* = {true_mu}$\n'
-                  f'Prior atoms: $\\sigma \\in \\{{{atoms_str}\\}}$\n'
-                  f'Prior weights: $({weights_str})$\n'
-                  f'NPMLE range: $[{si_min}, {si_max}]$\n'
-                  f'Simulations: {n_sims}')
-    props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
-
-    # =========================================================================
-    # Plot 1: All estimators comparison
-    # =========================================================================
-    fig, ax = plt.subplots(figsize=(12, 8))
-
-    # MLE Oracle (known per-observation sigmas)
-    ax.errorbar(n_values, mle_oracle_means, yerr=mle_oracle_stds,
-                fmt='o-', color=colors['mle_oracle'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='MLE Oracle (known $\\sigma_i$)', elinewidth=2)
-
-    # MLE with known G (known prior, unknown per-observation sigmas)
-    ax.errorbar(n_values[valid_mle_known_G], mle_known_G_means[valid_mle_known_G],
-                yerr=mle_known_G_stds[valid_mle_known_G],
-                fmt='p-', color=colors['mle_known_G'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='MLE (known $G$)', elinewidth=2)
-
-    # Median
-    ax.errorbar(n_values, median_means, yerr=median_stds,
-                fmt='d-', color=colors['median'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='Median', elinewidth=2)
-
-    # NPMLE
-    ax.errorbar(n_values[valid_npmle], npmle_means[valid_npmle],
-                yerr=npmle_stds[valid_npmle],
-                fmt='^-', color=colors['npmle'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='NPMLE (unknown $G$)', elinewidth=2)
-
-    # Reference line: 1/sqrt(n)
-    ref_sqrt_n = mle_oracle_means[0] * np.sqrt(n_values[0]) / np.sqrt(n_ref)
-    ax.plot(n_ref, ref_sqrt_n, '--', color='gray', alpha=0.7, linewidth=1.5,
-            label=r'$\propto 1/\sqrt{n}$ (parametric)')
-
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.set_xlabel('Sample Size $n$', fontsize=14)
-    ax.set_ylabel(r'Absolute Error $|\hat{\mu} - \mu^*|$', fontsize=14)
-    ax.set_title(f'Comparison of All Estimators: Three-Point Prior', fontsize=16)
-    ax.legend(fontsize=11, loc='upper right')
-    ax.grid(True, which='both', linestyle='--', alpha=0.5)
-    ax.tick_params(axis='both', which='major', labelsize=12)
-    ax.text(0.02, 0.02, param_text, transform=ax.transAxes, fontsize=10,
-            verticalalignment='bottom', bbox=props)
-
-    plt.tight_layout()
-    plot_file = os.path.join(output_dir, 'experiment3_all_estimators.png')
-    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    plt.close()
-    log(f"Plot saved to {plot_file}")
-
-    # =========================================================================
-    # Plot 2: MLE variants vs NPMLE comparison
-    # =========================================================================
-    fig2, ax2 = plt.subplots(figsize=(12, 8))
-
-    ax2.errorbar(n_values, mle_oracle_means, yerr=mle_oracle_stds,
-                fmt='o-', color=colors['mle_oracle'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='MLE Oracle (known $\\sigma_i$)', elinewidth=2)
-
-    ax2.errorbar(n_values[valid_mle_known_G], mle_known_G_means[valid_mle_known_G],
-                yerr=mle_known_G_stds[valid_mle_known_G],
-                fmt='p-', color=colors['mle_known_G'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='MLE (known $G$)', elinewidth=2)
-
-    ax2.errorbar(n_values[valid_npmle], npmle_means[valid_npmle],
-                yerr=npmle_stds[valid_npmle],
-                fmt='^-', color=colors['npmle'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='NPMLE (unknown $G$)', elinewidth=2)
-
-    ax2.plot(n_ref, ref_sqrt_n, '--', color='gray', alpha=0.7, linewidth=1.5,
-            label=r'$\propto 1/\sqrt{n}$')
-
-    ax2.set_xscale('log')
-    ax2.set_yscale('log')
-    ax2.set_xlabel('Sample Size $n$', fontsize=14)
-    ax2.set_ylabel(r'Absolute Error $|\hat{\mu} - \mu^*|$', fontsize=14)
-    ax2.set_title(f'MLE Variants vs NPMLE: Three-Point Prior', fontsize=16)
-    ax2.legend(fontsize=11, loc='upper right')
-    ax2.grid(True, which='both', linestyle='--', alpha=0.5)
-    ax2.tick_params(axis='both', which='major', labelsize=12)
-    ax2.text(0.02, 0.02, param_text, transform=ax2.transAxes, fontsize=10,
-            verticalalignment='bottom', bbox=props)
-
-    plt.tight_layout()
-    plot_file2 = os.path.join(output_dir, 'experiment3_mle_vs_npmle.png')
-    plt.savefig(plot_file2, dpi=300, bbox_inches='tight')
-    plt.close()
-    log(f"Plot saved to {plot_file2}")
-
-    # =========================================================================
-    # Plot 3: Error ratio plot (each estimator / MLE Oracle)
-    # =========================================================================
-    fig3, ax3 = plt.subplots(figsize=(12, 6))
-
-    valid_oracle = mle_oracle_means > 0
-
-    # MLE known G / MLE Oracle ratio
-    valid_both_G = valid_mle_known_G & valid_oracle
-    if np.any(valid_both_G):
-        ratio_mle_known_G = mle_known_G_means[valid_both_G] / mle_oracle_means[valid_both_G]
-        ax3.plot(n_values[valid_both_G], ratio_mle_known_G, 'p-', color=colors['mle_known_G'],
-                linewidth=2, markersize=8, label='MLE (known $G$) / Oracle')
-
-    # NPMLE / MLE Oracle ratio
-    valid_both = valid_npmle & valid_oracle
-    if np.any(valid_both):
-        ratio_npmle = npmle_means[valid_both] / mle_oracle_means[valid_both]
-        ax3.plot(n_values[valid_both], ratio_npmle, '^-', color=colors['npmle'],
-                linewidth=2, markersize=8, label='NPMLE / Oracle')
-
-    # Median / MLE Oracle ratio
-    if np.any(valid_oracle):
-        ratio_median = median_means[valid_oracle] / mle_oracle_means[valid_oracle]
-        ax3.plot(n_values[valid_oracle], ratio_median, 'd-', color=colors['median'],
-                linewidth=2, markersize=8, label='Median / Oracle')
-
-    ax3.axhline(y=1, color=colors['mle_oracle'], linestyle='--', alpha=0.7, label='Oracle')
-    ax3.set_xscale('log')
-    ax3.set_xlabel('Sample Size $n$', fontsize=14)
-    ax3.set_ylabel(r'Error Ratio (Estimator / Oracle)', fontsize=14)
-    ax3.set_title(f'Performance Relative to Oracle MLE: Three-Point Prior', fontsize=16)
-    ax3.grid(True, which='both', linestyle='--', alpha=0.5)
-    ax3.tick_params(axis='both', which='major', labelsize=12)
-    ax3.legend(fontsize=11, loc='best')
-    ax3.text(0.02, 0.98, param_text, transform=ax3.transAxes, fontsize=10,
-            verticalalignment='top', bbox=props)
-
-    plt.tight_layout()
-    ratio_plot_file = os.path.join(output_dir, 'experiment3_error_ratio.png')
-    plt.savefig(ratio_plot_file, dpi=300, bbox_inches='tight')
-    plt.close()
-    log(f"Ratio plot saved to {ratio_plot_file}")
-
-    # =========================================================================
-    # Plot 4: Combined 2-panel figure
-    # =========================================================================
-    fig4, (ax4a, ax4b) = plt.subplots(1, 2, figsize=(16, 6))
-
-    # Left panel: All estimators
-    ax4a.errorbar(n_values, mle_oracle_means, yerr=mle_oracle_stds,
-                fmt='o-', color=colors['mle_oracle'], linewidth=2, markersize=6,
-                capsize=3, label='Oracle', elinewidth=1.5)
-    ax4a.errorbar(n_values[valid_mle_known_G], mle_known_G_means[valid_mle_known_G],
-                yerr=mle_known_G_stds[valid_mle_known_G],
-                fmt='p-', color=colors['mle_known_G'], linewidth=2, markersize=6,
-                capsize=3, label='MLE (known $G$)', elinewidth=1.5)
-    ax4a.errorbar(n_values, median_means, yerr=median_stds,
-                fmt='d-', color=colors['median'], linewidth=2, markersize=6,
-                capsize=3, label='Median', elinewidth=1.5)
-    ax4a.errorbar(n_values[valid_npmle], npmle_means[valid_npmle],
-                yerr=npmle_stds[valid_npmle],
-                fmt='^-', color=colors['npmle'], linewidth=2, markersize=6,
-                capsize=3, label='NPMLE', elinewidth=1.5)
-    ax4a.plot(n_ref, ref_sqrt_n, '--', color='gray', alpha=0.7, linewidth=1.5)
-
-    ax4a.set_xscale('log')
-    ax4a.set_yscale('log')
-    ax4a.set_xlabel('Sample Size $n$', fontsize=14)
-    ax4a.set_ylabel(r'Absolute Error $|\hat{\mu} - \mu^*|$', fontsize=14)
-    ax4a.set_title('All Estimators', fontsize=14)
-    ax4a.legend(fontsize=9, loc='upper right')
-    ax4a.grid(True, which='both', linestyle='--', alpha=0.5)
-
-    # Right panel: Ratios
-    if np.any(valid_both_G):
-        ax4b.plot(n_values[valid_both_G], ratio_mle_known_G, 'p-', color=colors['mle_known_G'],
-                linewidth=2, markersize=6, label='MLE (known $G$)')
-    if np.any(valid_both):
-        ax4b.plot(n_values[valid_both], ratio_npmle, '^-', color=colors['npmle'],
-                linewidth=2, markersize=6, label='NPMLE')
-    if np.any(valid_oracle):
-        ax4b.plot(n_values[valid_oracle], ratio_median, 'd-', color=colors['median'],
-                linewidth=2, markersize=6, label='Median')
-    ax4b.axhline(y=1, color=colors['mle_oracle'], linestyle='--', alpha=0.7)
-    ax4b.set_xscale('log')
-    ax4b.set_xlabel('Sample Size $n$', fontsize=14)
-    ax4b.set_ylabel('Error Ratio (/ Oracle)', fontsize=14)
-    ax4b.set_title('Relative to Oracle', fontsize=14)
-    ax4b.legend(fontsize=9, loc='best')
-    ax4b.grid(True, which='both', linestyle='--', alpha=0.5)
-
-    # Overall title
-    title_str = f'Three-Point Prior: $\\sigma \\in \\{{{atoms_str}\\}}$, weights $= ({weights_str})$'
-    fig4.suptitle(title_str, fontsize=14, y=1.02)
-
-    plt.tight_layout()
-    combined_plot_file = os.path.join(output_dir, 'experiment3_combined.png')
     plt.savefig(combined_plot_file, dpi=300, bbox_inches='tight')
     plt.close()
     log(f"Combined plot saved to {combined_plot_file}")
@@ -1489,52 +1068,40 @@ def main():
     parser.add_argument('--output-dir', type=str, default='./results',
                         help='Output directory for results (default: ./results)')
     parser.add_argument('--experiment', type=str, default='both',
-                        choices=['sos', '2pt', '3pt', '2pt3pt', 'both', 'all'],
-                        help='Which experiment to run: sos, 2pt, 3pt, 2pt3pt (two+three point only), both/all (runs all three) (default: both)')
-    parser.add_argument('--true-mu', type=float, default=1.0,
+                        choices=['sos', '2pt', 'both'],
+                        help='Which experiment to run (default: both)')
+    parser.add_argument('--true-mu', type=float, default=2.0,
                         help='True mean for all experiments (default: 2.0)')
 
     # SOS experiment parameters
-    parser.add_argument('--sos-si-min', type=float, default=0.9,
+    parser.add_argument('--sos-si-min', type=float, default=0.7,
                         help='SOS: minimum sigma (default: 0.7)')
-    parser.add_argument('--sos-si-max', type=float, default=300,
+    parser.add_argument('--sos-si-max', type=float, default=150,
                         help='SOS: maximum sigma (default: 150)')
     parser.add_argument('--sos-B', type=float, default=10.0,
                         help='SOS: truncation bound B (default: 10.0)')
     parser.add_argument('--sos-mu0', type=float, default=1.0,
                         help='SOS: initial mean estimate (default: 1.0)')
-    parser.add_argument('--sos-m-power', type=float, default=1/2,
+    parser.add_argument('--sos-m-power', type=float, default=0.5,
                         help='SOS: power of n for computing m = max(1, floor(n^m_power)) (default: 0.5)')
-    parser.add_argument('--sos-skip-truncation', action='store_true',
-                        help='SOS: skip the slow iterative truncation estimator (default: False)')
 
     # Two-point experiment parameters
-    parser.add_argument('--tpt-prior-atoms', type=float, nargs=2, default=[1.0, 50.0],
+    parser.add_argument('--tpt-prior-atoms', type=float, nargs=2, default=[1.0, 30.0],
                         help='Two-point: prior atoms (default: 1.0 30.0)')
-    parser.add_argument('--tpt-prior-weights', type=float, nargs=2, default=[0.05, 0.95],
+    parser.add_argument('--tpt-prior-weights', type=float, nargs=2, default=[0.01, 0.99],
                         help='Two-point: prior weights (default: 0.01 0.99)')
-    parser.add_argument('--tpt-si-min', type=float, default=0.001,
+    parser.add_argument('--tpt-si-min', type=float, default=0.5,
                         help='Two-point: minimum sigma for NPMLE (default: 0.5)')
     parser.add_argument('--tpt-si-max', type=float, default=100.0,
                         help='Two-point: maximum sigma for NPMLE (default: 100.0)')
-    parser.add_argument('--tpt-weight-power', type=float, default=0.0,
+    parser.add_argument('--tpt-weight-power', type=float, default=0.75,
                         help='Two-point: power of n for dynamic weights. If > 0: w1=n^(-power), w2=1-w1. If 0: use fixed weights (default: 0)')
+    parser.add_argument('--tpt-sigma-power', type=float, default=0.0,
+                        help='Two-point: power of n for dynamic variance. If > 0: sigma_1=fixed, sigma_2=n^(power). If 0: use fixed atoms (default: 0)')
     parser.add_argument('--tpt-B', type=float, default=10.0,
                         help='Two-point: truncation bound B for truncated mean estimator (default: 10.0)')
 
-    # Three-point experiment parameters
-    parser.add_argument('--thpt-prior-atoms', type=float, nargs=3, default=[10.0, 60.0, 100.0],
-                        help='Three-point: prior atoms (default: 0.5 2.0 10.0)')
-    parser.add_argument('--thpt-prior-weights', type=float, nargs=3, default=[0.05, 0.9, 0.05],
-                        help='Three-point: prior weights (default: 0.2 0.3 0.5)')
-    parser.add_argument('--thpt-si-min', type=float, default=0.1,
-                        help='Three-point: minimum sigma for NPMLE (default: 0.1)')
-    parser.add_argument('--thpt-si-max', type=float, default=105,
-                        help='Three-point: maximum sigma for NPMLE (default: 50.0)')
-
     args = parser.parse_args()
-
-
 
     # Set number of workers
     if args.n_workers is None:
@@ -1567,27 +1134,17 @@ def main():
     overall_start = time.time()
 
     # Experiment 1: Subset-of-Signals
-    if args.experiment in ['sos', 'both', 'all']:
+    if args.experiment in ['sos', 'both']:
         run_experiment_sos(n_values, args.n_sims, args.true_mu, args.sos_si_min, args.sos_si_max,
-                          args.sos_B, args.sos_mu0, args.sos_m_power, args.sos_skip_truncation,
-                          n_workers, args.output_dir)
+                          args.sos_B, args.sos_mu0, args.sos_m_power, n_workers, args.output_dir)
 
     # Experiment 2: Two-Point Prior
-    if args.experiment in ['2pt', '2pt3pt', 'both', 'all']:
-        prior_atoms_2pt = np.array(args.tpt_prior_atoms)
-        prior_weights_2pt = np.array(args.tpt_prior_weights)
-        run_experiment_2pt(n_values, args.n_sims, args.true_mu, prior_atoms_2pt, prior_weights_2pt,
-                          args.tpt_weight_power, args.tpt_si_min, args.tpt_si_max, args.tpt_B,
+    if args.experiment in ['2pt', 'both']:
+        prior_atoms = np.array(args.tpt_prior_atoms)
+        prior_weights = np.array(args.tpt_prior_weights)
+        run_experiment_2pt(n_values, args.n_sims, args.true_mu, prior_atoms, prior_weights,
+                          args.tpt_weight_power, args.tpt_sigma_power, args.tpt_si_min, args.tpt_si_max, args.tpt_B,
                           n_workers, args.output_dir)
-
-    # Experiment 3: Three-Point Prior
-    if args.experiment in ['3pt', '2pt3pt', 'both', 'all']:
-        prior_atoms_3pt = np.array(args.thpt_prior_atoms)
-        prior_weights_3pt = np.array(args.thpt_prior_weights)
-        # Normalize weights in case they don't sum to 1
-        prior_weights_3pt = prior_weights_3pt / prior_weights_3pt.sum()
-        run_experiment_3pt(n_values, args.n_sims, args.true_mu, prior_atoms_3pt, prior_weights_3pt,
-                          args.thpt_si_min, args.thpt_si_max, n_workers, args.output_dir)
 
     overall_elapsed = time.time() - overall_start
     hours, remainder = divmod(int(overall_elapsed), 3600)
@@ -1602,5 +1159,4 @@ def main():
 
 
 if __name__ == '__main__':
-    np.random.seed()
     main()
