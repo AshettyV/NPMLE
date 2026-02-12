@@ -223,13 +223,39 @@ def avg_loglikelihood(prior_atoms, prior_weights, mu, N_obs):
 
 
 def DG_sigma(prior_atoms, prior_weights, sigma, mu, N_obs, denom=None):
-    """Directional derivative for atom update"""
+    """Directional derivative for atom update (single sigma value)"""
     n = len(N_obs)
     if denom is None:
         denom = mixture_density(prior_atoms, prior_weights, mu, N_obs)
     denom = np.maximum(denom, 1e-300)
     numer = norm.pdf(N_obs, loc=mu, scale=sigma)
     return (1.0/n) * np.sum(numer/denom) - 1.0
+
+
+def DG_sigma_grid(prior_atoms, prior_weights, sigma_grid, mu, N_obs):
+    """Vectorized directional derivative for grid of sigma values.
+    
+    Args:
+        sigma_grid: array of shape (M,) - grid of sigma values to evaluate
+        N_obs: array of shape (n,) - observations
+    
+    Returns:
+        array of shape (M,) - DG values for each sigma in the grid
+    """
+    n = len(N_obs)
+    denom = mixture_density(prior_atoms, prior_weights, mu, N_obs)  # shape (n,)
+    denom = np.maximum(denom, 1e-300)
+    
+    # Reshape for broadcasting: N_obs (n, 1), sigma_grid (1, M), denom (n, 1)
+    N_obs_2d = N_obs[:, np.newaxis]  # (n, 1)
+    sigma_2d = sigma_grid[np.newaxis, :]  # (1, M)
+    denom_2d = denom[:, np.newaxis]  # (n, 1)
+    
+    # numer shape: (n, M)
+    numer = norm.pdf(N_obs_2d, loc=mu, scale=sigma_2d)
+    
+    # Sum over observations (axis=0), result shape: (M,)
+    return (1.0/n) * np.sum(numer / denom_2d, axis=0) - 1.0
 
 
 def grad_DG_sigma(prior_atoms, prior_weights, sigma, mu, N_obs, denom=None):
@@ -301,7 +327,6 @@ def get_weights_npmle_EM(x, scales, mu=0.0, w_init=None, max_iter=500, tol=1e-8)
 
     return w
 
-
 def merge_atoms_weights(atoms, weights, atom_tol=1e-3):
     """Merge atoms that are too close"""
     atoms = np.asarray(atoms)
@@ -322,6 +347,20 @@ def merge_atoms_weights(atoms, weights, atom_tol=1e-3):
 
     return np.array(merged_atoms), np.array(merged_weights)
 
+def update_atoms_grid(atoms, weights, mu, N_obs, si_min, si_max, n_grid=500, verbose=False):
+    """Find new atom using grid search over sigma values.
+    
+    Uses vectorized DG_sigma_grid for efficiency.
+    """
+    x = np.linspace(si_min, si_max, n_grid)
+    y = DG_sigma_grid(atoms, weights, x, mu, N_obs)  # Use vectorized version
+    new_atom = x[np.argmax(y)]
+    max_val = np.max(y)
+    
+    if verbose:
+        print(f"Grid search: max DG = {max_val:.6f} at sigma = {new_atom:.4f}")
+    
+    return new_atom, max_val
 
 def npmle_heteroskedastic(N_obs, mu, si_min, si_max, atoms_init=None, weights_init=None,
                           weight_tol=1e-6, atom_tol=1e-6, progress_tol=1e-6,
@@ -356,12 +395,18 @@ def npmle_heteroskedastic(N_obs, mu, si_min, si_max, atoms_init=None, weights_in
             weights = np.array([1.0])
 
         # Update atoms (add new atom)
-        s_star, dg_val = update_atoms(atoms, weights, mu, N_obs, si_min, si_max)
+        # s_star, dg_val = update_atoms(atoms, weights, mu, N_obs, si_min, si_max)
+        s_star, dg_val = update_atoms_grid(atoms, weights, mu, N_obs, si_min, si_max)
 
         if dg_val > 1e-6:
             atoms = np.append(atoms, s_star)
             weights = np.append(weights, 0.0)
             weights = get_weights_npmle_EM(N_obs, atoms, mu=mu, w_init=weights)
+
+        # if dg_val > 1e-6:
+        #     atoms = np.append(atoms, s_star)
+        #     weights = np.append(weights, 0.0)
+        #     weights = get_weights_npmle_EM(N_obs, atoms, mu=mu, w_init=weights)
 
         # Check convergence
         ll = avg_loglikelihood(atoms, weights, mu, N_obs)
@@ -411,10 +456,17 @@ def npmle_alternating_full(N_obs, si_min=0, si_max=np.inf, verbose=False, iter_m
     if si_max == np.inf:
         si_max = 10 * np.std(N_obs)
 
-    mu = np.median(N_obs)
-    atoms = np.array([max(si_min, np.std(N_obs))])
-    weights = np.array([1.0])
+    si_min = max(si_min, np.min(np.abs(N_obs)))
+    si_max = min(si_max, np.max(np.abs(N_obs)))
 
+    mu = np.median(N_obs)
+    # atoms = np.array([max(si_min, np.std(N_obs))])
+    # weights = np.array([1.0])
+
+    grid_size = 50
+    atoms = np.linspace(si_min, si_max, grid_size)
+    weights = np.ones(grid_size, dtype=float) / grid_size
+    
     prev_ll = -np.inf
 
     for iter_count in range(iter_max):
@@ -422,7 +474,7 @@ def npmle_alternating_full(N_obs, si_min=0, si_max=np.inf, verbose=False, iter_m
         atoms, weights = npmle_heteroskedastic(
             N_obs, mu, si_min, si_max,
             atoms_init=atoms, weights_init=weights,
-            iter_max=10, verbose=False
+            iter_max=iter_max, verbose=False
         )
 
         # Update mu (fixed scale mixture)
@@ -467,7 +519,7 @@ def run_single_simulation_sos(args):
     # 3. NPMLE estimator
     try:
         _, _, mu_hat_npmle = npmle_alternating_full(
-            N_obs=X, si_min=si_min, si_max=si_max, iter_max=8, verbose=False)
+            N_obs=X, si_min=0.0, si_max=1000, iter_max=8, verbose=False)
         err_npmle = np.abs(mu_hat_npmle - true_mu)
     except Exception as e:
         err_npmle = np.nan
@@ -519,7 +571,7 @@ def run_single_simulation_2pt(args):
     # 4. NPMLE estimator (unknown G)
     try:
         _, _, mu_hat_npmle = npmle_alternating_full(
-            N_obs=X, si_min=si_min, si_max=si_max, iter_max=8, verbose=False)
+            N_obs=X, si_min=0.0, si_max=500, iter_max=8, verbose=False)
         err_npmle = np.abs(mu_hat_npmle - true_mu)
     except Exception as e:
         err_npmle = np.nan
@@ -1082,7 +1134,7 @@ def main():
                         help='SOS: truncation bound B (default: 10.0)')
     parser.add_argument('--sos-mu0', type=float, default=1.0,
                         help='SOS: initial mean estimate (default: 1.0)')
-    parser.add_argument('--sos-m-power', type=float, default=0.5,
+    parser.add_argument('--sos-m-power', type=float, default=1/3,
                         help='SOS: power of n for computing m = max(1, floor(n^m_power)) (default: 0.5)')
 
     # Two-point experiment parameters
