@@ -1,15 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=npmle_tests
-#SBATCH --output=/home/shetty/orcd/scratch/npmle/slurm_logs/npmle_tests_%j.out
-#SBATCH --error=/home/shetty/orcd/scratch/npmle/slurm_logs/npmle_tests_%j.err
+#SBATCH --account torch_pr_732_general
+#SBATCH --output=/home/jas10184/NPMLE/results/npmle_tests_%j.out
+#SBATCH --error=/home/jas10184/NPMLE/results/npmle_tests_%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=120
 #SBATCH --mem=256G
 #SBATCH --time=24:00:00
-#SBATCH --partition=pi_rakhlin
-#SBATCH --nodelist=node4500
-#SBATCH --gpus-per-node=1
 
 
 # =============================================================================

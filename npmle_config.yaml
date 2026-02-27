@@ -94,13 +94,13 @@ two_point:
 
 paths:
   # Base directory for all outputs
-  base_dir: "/home/shetty/orcd/scratch/npmle"
+  base_dir: "/home/jas10184/NPMLE"
 
   # Directory for SLURM log files (.out and .err)
-  slurm_log_dir: "/home/shetty/orcd/scratch/npmle/slurm_logs"
+  slurm_log_dir: "/home/jas10184/NPMLE/slurm_logs"
 
   # Symlink to the latest experiment results
-  latest_link: "/home/shetty/orcd/scratch/npmle/latest"
+  latest_link: "/home/jas10184/NPMLE/latest"
 
 # -----------------------------------------------------------------------------
 # Conda Environment
@@ -108,7 +108,7 @@ paths:
 
 conda:
   # Conda installation path
-  path: "/home/shetty/.conda"
+  path: "/home/jas10184/.conda"
 
   # Conda environment name to activate
   env: "trial_env"

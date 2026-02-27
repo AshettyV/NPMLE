@@ -39,7 +39,7 @@ EXPERIMENT="both"
 # =============================================================================
 
 # Base directory for all outputs
-BASE_DIR="/home/shetty/orcd/scratch/npmle"
+BASE_DIR="/home/jas10184/NPMLE"
 
 # Directory for SLURM log files (.out and .err)
 SLURM_LOG_DIR="${BASE_DIR}/slurm_logs"
@@ -53,7 +53,7 @@ LATEST_LINK="${BASE_DIR}/latest"
 
 # Conda installation path (set this if auto-detection fails)
 # This is the root directory containing etc/profile.d/conda.sh
-CONDA_PATH="/home/shetty/.conda"
+CONDA_PATH="/home/jas10184/.conda"
 
 # Conda environment name to activate
 CONDA_ENV="trial_env"
@@ -67,9 +67,6 @@ PIP_PACKAGES="numpy scipy matplotlib"
 # =============================================================================
 # Note: SBATCH directives in submit_npmle.sh cannot use variables
 # If you change these, also update the #SBATCH lines in submit_npmle.sh
-
-# Partition to submit to
-PARTITION="pi_rakhlin"
 
 # Specific node to run on (leave empty for any available node)
 NODELIST="node4500"
