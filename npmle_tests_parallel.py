@@ -22,6 +22,7 @@ from collections import Counter
 from multiprocessing import Pool, cpu_count
 from functools import partial
 import time
+import argparse
 
 
 # =============================================================================
@@ -32,8 +33,8 @@ import time
 class GeneralConfig:
     """General experiment configuration."""
     n_workers: Optional[int] = None      # Number of parallel workers (None = all CPUs)
-    n_sims: int = 100                    # Number of simulations per n value
-    n_points: int = 15                   # Number of n values to test
+    n_sims: int = 1                    # Number of simulations per n value
+    n_points: int = 8                   # Number of n values to test
     n_min: float = 2.0                   # Log10 of minimum n (e.g., 2 means n=100)
     n_max: float = 4.0                  # Log10 of maximum n (e.g., 4 means n=10000)
     output_dir: str = './results'        # Output directory for results
@@ -60,6 +61,7 @@ class TwoPointConfig:
     si_max: float = 100.0                # Maximum sigma for NPMLE search
     weight_power: float = 0.0            # If > 0: w1 = n^(-power), w2 = 1-w1
     sigma_power: float = 0.0             # If > 0: sigma_2 = n^(power)
+    B: float = 10.0                      # Optional truncation bound for 2pt experiments
 
 
 @dataclass
@@ -99,7 +101,8 @@ class ExperimentConfig:
                 print(f"  Prior weights:  ({self.two_point.prior_weights[0]}, {self.two_point.prior_weights[1]})")
             if self.two_point.sigma_power > 0:
                 print(f"  Dynamic σ₂:     σ₂ = n^{self.two_point.sigma_power}")
-            print(f"  NPMLE range:    [{self.two_point.si_min}, {self.two_point.si_max}]")
+            print(f"  EB range:       [{self.two_point.si_min}, {self.two_point.si_max}]")
+            print(f"  B (2pt):        {self.two_point.B}")
         
         print("=" * 60 + "\n")
 
@@ -119,7 +122,7 @@ def get_default_config() -> ExperimentConfig:
         general=GeneralConfig(
             n_workers=None,          # Use all available CPUs
             n_sims=100,              # Simulations per n value
-            n_points=8,             # Number of n values
+            n_points=15,             # Number of n values
             n_min=2.0,               # Start n 
             n_max=3.0,               # End n
             output_dir='./results',
@@ -142,6 +145,101 @@ def get_default_config() -> ExperimentConfig:
             sigma_power=0.0,         # Set > 0 for dynamic variance: σ₂ = n^(power)
         ),
     )
+
+
+def parse_args():
+    """
+    Parse command-line arguments for overriding the default configuration.
+    
+    This is primarily used by SLURM submission scripts (e.g., submit_npmle.sh),
+    but is optional when running the script manually.
+    """
+    parser = argparse.ArgumentParser(description="NPMLE Tests - Parallelized version for HPC cluster")
+
+    # General settings
+    parser.add_argument("--n-workers", type=int, default=None, help="Number of parallel workers (processes)")
+    parser.add_argument("--n-sims", type=int, default=None, help="Number of simulations per n value")
+    parser.add_argument("--n-points", type=int, default=None, help="Number of n values to test")
+    parser.add_argument("--n-min", type=float, default=None, help="Log10 of minimum n")
+    parser.add_argument("--n-max", type=float, default=None, help="Log10 of maximum n")
+    parser.add_argument("--output-dir", type=str, default=None, help="Output directory for results")
+    parser.add_argument("--experiment", type=str, default=None, choices=["sos", "2pt", "both"], help="Which experiment(s) to run")
+    parser.add_argument("--true-mu", type=float, default=None, help="True mean for all experiments")
+
+    # SOS experiment settings
+    parser.add_argument("--sos-si-min", type=float, default=None, help="Minimum sigma for SOS prior")
+    parser.add_argument("--sos-si-max", type=float, default=None, help="Maximum sigma for SOS prior")
+    parser.add_argument("--sos-B", type=float, default=None, help="Truncation bound B for SOS estimator")
+    parser.add_argument("--sos-mu0", type=float, default=None, help="Initial mean estimate for SOS iterative truncation")
+    parser.add_argument("--sos-m-power", type=float, default=None, help="Power for m = n^m_power in SOS experiment")
+
+    # Two-point prior experiment settings
+    parser.add_argument("--tpt-prior-atoms", type=float, nargs="+", default=None,
+                        help="Prior atoms (sigma values) for two-point prior (space-separated)")
+    parser.add_argument("--tpt-prior-weights", type=float, nargs="+", default=None,
+                        help="Prior weights for two-point prior (space-separated, must sum to 1)")
+    parser.add_argument("--tpt-weight-power", type=float, default=None,
+                        help="If > 0: w1 = n^(-power), w2 = 1 - w1; if 0: use fixed weights")
+    parser.add_argument("--tpt-si-min", type=float, default=None, help="Minimum sigma for NPMLE search (2pt)")
+    parser.add_argument("--tpt-si-max", type=float, default=None, help="Maximum sigma for NPMLE search (2pt)")
+    parser.add_argument("--tpt-B", type=float, default=None, help="Optional truncation bound B for 2pt experiment")
+
+    args = parser.parse_args()
+    return args
+
+
+def config_from_args(args) -> ExperimentConfig:
+    """
+    Build an ExperimentConfig from parsed CLI arguments, overriding defaults
+    only where arguments are provided.
+    """
+    config = get_default_config()
+
+    # General settings
+    if args.n_workers is not None:
+        config.general.n_workers = args.n_workers
+    if args.n_sims is not None:
+        config.general.n_sims = args.n_sims
+    if args.n_points is not None:
+        config.general.n_points = args.n_points
+    if args.n_min is not None:
+        config.general.n_min = args.n_min
+    if args.n_max is not None:
+        config.general.n_max = args.n_max
+    if args.output_dir is not None:
+        config.general.output_dir = args.output_dir
+    if args.experiment is not None:
+        config.general.experiment = args.experiment
+    if args.true_mu is not None:
+        config.general.true_mu = args.true_mu
+
+    # SOS settings
+    if args.sos_si_min is not None:
+        config.sos.si_min = args.sos_si_min
+    if args.sos_si_max is not None:
+        config.sos.si_max = args.sos_si_max
+    if args.sos_B is not None:
+        config.sos.B = args.sos_B
+    if args.sos_mu0 is not None:
+        config.sos.mu0 = args.sos_mu0
+    if args.sos_m_power is not None:
+        config.sos.m_power = args.sos_m_power
+
+    # Two-point prior settings
+    if args.tpt_prior_atoms is not None:
+        config.two_point.prior_atoms = list(args.tpt_prior_atoms)
+    if args.tpt_prior_weights is not None:
+        config.two_point.prior_weights = list(args.tpt_prior_weights)
+    if args.tpt_weight_power is not None:
+        config.two_point.weight_power = args.tpt_weight_power
+    if args.tpt_si_min is not None:
+        config.two_point.si_min = args.tpt_si_min
+    if args.tpt_si_max is not None:
+        config.two_point.si_max = args.tpt_si_max
+    if args.tpt_B is not None:
+        config.two_point.B = args.tpt_B
+
+    return config
 
 
 # =============================================================================
@@ -616,10 +714,10 @@ def npmle_alternating_full(N_obs, si_min=0, si_max=np.inf, verbose=False, iter_m
     si_max = min(si_max, np.max(np.abs(N_obs)))
 
     mu = np.median(N_obs)
-    # atoms = np.array([max(si_min, np.std(N_obs))])
-    # weights = np.array([1.0])
+    # atoms = np.array([(si_min + si_max) / 2])
+    #weights = np.array([1.0])
 
-    grid_size = 50
+    grid_size = 10
     atoms = np.linspace(si_min, si_max, grid_size)
     weights = np.ones(grid_size, dtype=float) / grid_size
     
@@ -677,7 +775,7 @@ def run_single_simulation_sos(args):
     # 3. NPMLE estimator
     try:
         _, _, mu_hat_npmle = npmle_alternating_full(
-            N_obs=X, si_min=0.0, si_max=1000, iter_max=8, verbose=False)
+            N_obs=X, si_min=0.001, si_max=1000, iter_max=10, verbose=False)
         err_npmle = np.abs(mu_hat_npmle - true_mu)
     except Exception as e:
         err_npmle = np.nan
@@ -729,7 +827,7 @@ def run_single_simulation_2pt(args):
     # 4. NPMLE estimator (unknown G)
     try:
         _, _, mu_hat_npmle = npmle_alternating_full(
-            N_obs=X, si_min=0.0, si_max=500, iter_max=8, verbose=False)
+            N_obs=X, si_min=0.001, si_max=500, iter_max=10, verbose=False)
         err_npmle = np.abs(mu_hat_npmle - true_mu)
     except Exception as e:
         err_npmle = np.nan
@@ -877,7 +975,7 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
     log(f"n values: {n_values}")
     log(f"Simulations per n: {n_sims}")
     log(f"Using {n_workers} workers")
-    log(f"NPMLE search range: [{si_min}, {si_max}]")
+    log(f"EB search range: [{si_min}, {si_max}]")
     log("=" * 60)
 
     # Prepare all simulation arguments
@@ -1006,7 +1104,7 @@ def create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds
     ax.errorbar(n_values[valid_npmle], npmle_means[valid_npmle],
                 yerr=npmle_stds[valid_npmle],
                 fmt='^-', color=colors['npmle'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='NPMLE', elinewidth=2)
+                capsize=5, capthick=2, label='EB', elinewidth=2)
 
     ax.set_xscale('log')
     ax.set_yscale('log')
@@ -1067,7 +1165,7 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
                   f'$\\mu^* = {true_mu}$\n'
                   f'Prior atoms: {sigma_str}\n'
                   f'Prior weights: {weight_str}\n'
-                  f'NPMLE range: $[{si_min}, {si_max}]$\n'
+                  f'EB range: $[{si_min}, {si_max}]$\n'
                   f'Simulations: {n_sims}')
     props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
 
@@ -1095,7 +1193,7 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
     ax.errorbar(n_values[valid_npmle], npmle_means[valid_npmle],
                 yerr=npmle_stds[valid_npmle],
                 fmt='^-', color=colors['npmle'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='NPMLE (unknown $G$)', elinewidth=2)
+                capsize=5, capthick=2, label='EB (unknown $G$)', elinewidth=2)
 
     # Reference line: 1/sqrt(n)
     ref_sqrt_n = mle_oracle_means[0] * np.sqrt(n_values[0]) / np.sqrt(n_ref)
@@ -1131,7 +1229,7 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
     ax2.errorbar(n_values[valid_npmle], npmle_means[valid_npmle],
                 yerr=npmle_stds[valid_npmle],
                 fmt='^-', color=colors['npmle'], linewidth=2, markersize=8,
-                capsize=5, capthick=2, label='NPMLE (unknown $G$)', elinewidth=2)
+                capsize=5, capthick=2, label='EB (unknown $G$)', elinewidth=2)
 
     ax2.plot(n_ref, ref_sqrt_n, '--', color='gray', alpha=0.7, linewidth=1.5,
             label=r'$\propto 1/\sqrt{n}$')
@@ -1140,7 +1238,7 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
     ax2.set_yscale('log')
     ax2.set_xlabel('Sample Size $n$', fontsize=14)
     ax2.set_ylabel(r'Absolute Error $|\hat{\mu} - \mu^*|$', fontsize=14)
-    ax2.set_title(f'MLE Oracle vs NPMLE: Two-Point Prior', fontsize=16)
+    ax2.set_title(f'MLE Oracle vs EB: Two-Point Prior', fontsize=16)
     ax2.legend(fontsize=11, loc='upper right')
     ax2.grid(True, which='both', linestyle='--', alpha=0.5)
     ax2.tick_params(axis='both', which='major', labelsize=12)
@@ -1165,7 +1263,7 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
     if np.any(valid_both):
         ratio_npmle = npmle_means[valid_both] / mle_oracle_means[valid_both]
         ax3.plot(n_values[valid_both], ratio_npmle, '^-', color=colors['npmle'],
-                linewidth=2, markersize=8, label='NPMLE / MLE Oracle')
+                linewidth=2, markersize=8, label='EB / MLE Oracle')
 
     # MLE (Known G) / MLE Oracle ratio
     if np.any(valid_mle):
@@ -1214,7 +1312,7 @@ def create_plot_2pt(n_values, mle_oracle_means, mle_oracle_stds,
     ax4a.errorbar(n_values[valid_npmle], npmle_means[valid_npmle],
                 yerr=npmle_stds[valid_npmle],
                 fmt='^-', color=colors['npmle'], linewidth=2, markersize=6,
-                capsize=3, label='NPMLE', elinewidth=1.5)
+                capsize=3, label='EB', elinewidth=1.5)
     ax4a.plot(n_ref, ref_sqrt_n, '--', color='gray', alpha=0.7, linewidth=1.5)
 
     ax4a.set_xscale('log')
@@ -1291,7 +1389,7 @@ def main(config: ExperimentConfig = None):
 
     # Print configuration
     log("=" * 60)
-    log("NPMLE Tests - Parallelized Version")
+    log("EB Tests - Parallelized Version")
     log("=" * 60)
     log(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     log(f"Output directory: {gen.output_dir}")
@@ -1353,26 +1451,9 @@ def main(config: ExperimentConfig = None):
 
 
 if __name__ == '__main__':
-    # =========================================================================
-    # TO MODIFY EXPERIMENT PARAMETERS:
-    # 
-    # Option 1: Edit get_default_config() function above
-    # Option 2: Create a custom config here:
-    # =========================================================================
-    
-    # Example of custom configuration:
-    # config = ExperimentConfig(
-    #     general=GeneralConfig(
-    #         n_sims=50,
-    #         n_points=10,
-    #         experiment='2pt',
-    #     ),
-    #     two_point=TwoPointConfig(
-    #         prior_atoms=[1.0, 50.0],
-    #         weight_power=0.5,
-    #     ),
-    # )
-    # main(config)
-    
-    # Use default configuration
-    main()
+    # When executed as a script (including via SLURM submission), parse any
+    # command-line arguments to override the default configuration. If no
+    # arguments are provided, this reduces to the default configuration.
+    args = parse_args()
+    cfg = config_from_args(args)
+    main(cfg)
