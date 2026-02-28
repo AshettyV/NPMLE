@@ -1,0 +1,47 @@
+==============================================
+NPMLE Experiment Starting
+==============================================
+Log file:      /home/jas10184/NPMLE/results_2950489/logs/experiment.log
+Status file:   /home/jas10184/NPMLE/results_2950489/logs/status.txt
+Resource log:  /home/jas10184/NPMLE/results_2950489/logs/resources.log
+Output dir:    /home/jas10184/NPMLE/results_2950489
+
+To monitor: tail -f /home/jas10184/NPMLE/results_2950489/logs/experiment.log
+==============================================
+
+==============================================================================
+[2026-02-28 10:39:19] NPMLE Tests - Starting Job
+==============================================================================
+[2026-02-28 10:39:19] Job ID: 2950489
+[2026-02-28 10:39:19] Node: cs672
+[2026-02-28 10:39:19] CPUs: 120
+[2026-02-28 10:39:19] GPUs: 
+[2026-02-28 10:39:19] Working directory: /home/jas10184/NPMLE
+[2026-02-28 10:39:19] Output directory: /home/jas10184/NPMLE/results_2950489
+[2026-02-28 10:39:19] Log file: /home/jas10184/NPMLE/results_2950489/logs/experiment.log
+[2026-02-28 10:39:19] STATUS: INITIALIZING
+[2026-02-28 10:39:19] Created symlink: /home/jas10184/NPMLE/latest -> /home/jas10184/NPMLE/results_2950489
+
+==============================================================================
+[2026-02-28 10:39:19] Loading Modules
+==============================================================================
+[2026-02-28 10:39:19] STATUS: LOADING_MODULES
+Lmod has detected the following error: The following module(s) are unknown:
+"miniforge"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore_cache load "miniforge"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+[2026-02-28 10:39:25] Searching for conda installation...
+[2026-02-28 10:39:25]   CONDA_PATH (from config)=/share/apps/anaconda3/2025.06
+[2026-02-28 10:39:25]   CONDA_PREFIX=
+[2026-02-28 10:39:25]   MAMBA_ROOT_PREFIX=
+[2026-02-28 10:39:25] Found conda at CONDA_PATH: /share/apps/anaconda3/2025.06
+[2026-02-28 10:39:32] Conda environment trial_env not found. Creating it...
+[2026-02-28 10:39:41] ERROR (diff): Failed to create Conda environment trial_env

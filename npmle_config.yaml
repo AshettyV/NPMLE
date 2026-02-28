@@ -108,7 +108,7 @@ paths:
 
 conda:
   # Conda installation path
-  path: "/home/jas10184/.conda"
+  path: "/share/apps/anaconda3/2025.06"
 
   # Conda environment name to activate
   env: "trial_env"
@@ -127,8 +127,6 @@ conda:
 # If you change these, also update the #SBATCH lines in submit_npmle.sh
 
 slurm:
-  partition: "pi_rakhlin"
-  nodelist: "node4500"
   cpus_per_task: 100
   mem: "256G"
   time: "24:00:00"

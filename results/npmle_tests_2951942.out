@@ -1,0 +1,1244 @@
+==============================================
+NPMLE Experiment Starting
+==============================================
+Log file:      /home/jas10184/NPMLE/results_2951942/logs/experiment.log
+Status file:   /home/jas10184/NPMLE/results_2951942/logs/status.txt
+Resource log:  /home/jas10184/NPMLE/results_2951942/logs/resources.log
+Output dir:    /home/jas10184/NPMLE/results_2951942
+
+To monitor: tail -f /home/jas10184/NPMLE/results_2951942/logs/experiment.log
+==============================================
+
+==============================================================================
+[2026-02-28 11:40:15] NPMLE Tests - Starting Job
+==============================================================================
+[2026-02-28 11:40:15] Job ID: 2951942
+[2026-02-28 11:40:15] Node: cs675
+[2026-02-28 11:40:15] CPUs: 120
+[2026-02-28 11:40:15] GPUs: 
+[2026-02-28 11:40:15] Working directory: /home/jas10184/NPMLE
+[2026-02-28 11:40:15] Output directory: /home/jas10184/NPMLE/results_2951942
+[2026-02-28 11:40:15] Log file: /home/jas10184/NPMLE/results_2951942/logs/experiment.log
+[2026-02-28 11:40:15] STATUS: INITIALIZING
+[2026-02-28 11:40:15] Created symlink: /home/jas10184/NPMLE/latest -> /home/jas10184/NPMLE/results_2951942
+
+==============================================================================
+[2026-02-28 11:40:15] Loading Modules
+==============================================================================
+[2026-02-28 11:40:15] STATUS: LOADING_MODULES
+[2026-02-28 11:40:16] Searching for conda installation...
+[2026-02-28 11:40:16]   CONDA_PATH (from config)=/share/apps/anaconda3/2025.06
+[2026-02-28 11:40:16] Initializing conda from: /share/apps/anaconda3/2025.06
+[2026-02-28 11:40:31] Conda environment trial_env not found. Creating it...
+[2026-02-28 11:40:31] Accepting Conda Terms of Service...
+accepted Terms of Service for https://repo.anaconda.com/pkgs/main
+accepted Terms of Service for https://repo.anaconda.com/pkgs/r
+[2026-02-28 11:40:48] Running: /share/apps/anaconda3/2025.06/bin/conda create -n trial_env -y --override-channels --channel https://repo.anaconda.com/pkgs/main --channel https://repo.anaconda.com/pkgs/r python=3.9 numpy scipy matplotlib cvxpy
+2 channel Terms of Service accepted
+Channels:
+ - defaults
+Platform: linux-64
+Collecting package metadata (repodata.json): - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / done
+Solving environment: \ | done
+
+
+==> WARNING: A newer version of conda exists. <==
+    current version: 25.5.1
+    latest version: 26.1.1
+
+Please update conda by running
+
+    $ conda update -n base -c defaults conda
+
+
+
+## Package Plan ##
+
+  environment location: /home/jas10184/.conda/envs/trial_env
+
+  added / updated specs:
+    - cvxpy
+    - matplotlib
+    - numpy
+    - python=3.9
+    - scipy
+
+
+The following packages will be downloaded:
+
+    package                    |            build
+    ---------------------------|-----------------
+    aom-3.12.1                 |       h7934f7d_0         2.8 MB
+    blas-1.0                   |         openblas          46 KB
+    c-ares-1.34.6              |       hd44998d_0         202 KB
+    ca-certificates-2025.12.2  |       h06a4308_0         125 KB
+    cairo-1.18.4               |       h44eff21_0         728 KB
+    cffi-2.0.0                 |   py39h4eded50_0         235 KB
+    clarabel-0.11.1            |   py39h1c792f7_0         939 KB
+    contourpy-1.2.1            |   py39hdb19cb5_1         245 KB
+    cvxpy-1.7.2                |   py39h06a4308_0         139 KB
+    cvxpy-base-1.7.2           |   py39hbdd6827_0         1.2 MB
+    cyrus-sasl-2.1.28          |       h1110e0f_3         242 KB
+    dav1d-1.2.1                |       h5eee18b_0         823 KB
+    expat-2.7.4                |       h7354ed3_0          25 KB
+    fontconfig-2.15.0          |       h2c49b7f_0         262 KB
+    fonttools-4.60.1           |   py39hee96239_0         3.7 MB
+    freetype-2.14.1            |       hf5b9546_0         634 KB
+    fribidi-1.0.16             |       h9fb5f84_0          58 KB
+    gettext-0.25.1             |       h92eb808_0         523 KB
+    gettext-tools-0.25.1       |       h6a67909_0         3.6 MB
+    graphite2-1.3.14           |       h295c915_1          97 KB
+    harfbuzz-10.2.0            |       hdfddeaa_1         2.3 MB
+    importlib_resources-6.5.2  |   py39h06a4308_0          63 KB
+    jansson-2.14               |       h5eee18b_1          37 KB
+    jinja2-3.1.6               |   py39h06a4308_0         274 KB
+    joblib-1.5.2               |   py39h06a4308_0         401 KB
+    jpeg-9f                    |       h5ce9db8_0         242 KB
+    kiwisolver-1.4.4           |   py39h6a678d5_0          76 KB
+    lcms2-2.17                 |       heab6991_0         243 KB
+    ld_impl_linux-64-2.44      |       h153f514_2         672 KB
+    libasprintf-0.25.1         |       hf2ab22a_0          51 KB
+    libasprintf-devel-0.25.1   |       hf2ab22a_0          33 KB
+    libavif-1.3.0              |       h3539ee5_0         151 KB
+    libcups-2.4.15             |       hbe4054b_0         4.4 MB
+    libcurl-8.17.0             |       hc93bc37_0         471 KB
+    libdrm-2.4.124             |       h5eee18b_0         320 KB
+    libegl-1.7.0               |       h5eee18b_2          44 KB
+    libexpat-2.7.4             |       h7354ed3_0         122 KB
+    libgcc-15.2.0              |       h69a1729_7         806 KB
+    libgcc-ng-15.2.0           |       h166f726_7          28 KB
+    libgettextpo-0.25.1        |       hf2ab22a_0         186 KB
+    libgettextpo-devel-0.25.1  |       hf2ab22a_0          35 KB
+    libgfortran-15.2.0         |       h166f726_7          28 KB
+    libgfortran-ng-15.2.0      |       h166f726_7          28 KB
+    libgfortran5-15.2.0        |       hc633d37_7         1.5 MB
+    libgl-1.7.0                |       h5eee18b_2         149 KB
+    libglib-2.84.2             |       h37c7471_0         1.7 MB
+    libglvnd-1.7.0             |       h5eee18b_2         140 KB
+    libglx-1.7.0               |       h5eee18b_2          87 KB
+    libgomp-15.2.0             |       h4751f2c_7         436 KB
+    libiconv-1.18              |       h75a1612_0         771 KB
+    libidn2-2.3.8              |       hf80d704_0          80 KB
+    libkrb5-1.21.3             |       h520c7b4_4         874 KB
+    libllvm15-15.0.7           |       he89c38a_4        35.4 MB
+    libnghttp2-1.67.1          |       h697f920_0         636 KB
+    libnsl-2.0.0               |       h5eee18b_0          31 KB
+    libopenblas-0.3.31         |       hf7dbefb_0         5.7 MB
+    libopenjpeg-2.5.4          |       hee96239_1         215 KB
+    libosqp-1.0.0              |       ha949e79_1         132 KB
+    libpciaccess-0.18          |       h5eee18b_0          26 KB
+    libpng-1.6.54              |       hee55ce4_0         241 KB
+    libpq-17.6                 |       ha51bf15_0         2.5 MB
+    libprotobuf-5.29.3         |       h3cdef7c_1         3.5 MB
+    libsodium-1.0.20           |       heac8642_0         288 KB
+    libstdcxx-15.2.0           |       h39759b7_7         3.7 MB
+    libstdcxx-ng-15.2.0        |       hc03a8fd_7          28 KB
+    libtiff-4.7.1              |       h029b1ac_0         423 KB
+    libunistring-1.3           |       hb25bd0a_0         721 KB
+    libwebp-base-1.6.0         |       hb7bb969_0         419 KB
+    libxml2-2.13.9             |       h2c43086_0         669 KB
+    libzlib-1.3.1              |       hb25bd0a_0          59 KB
+    lmdb-0.9.31                |       hb25bd0a_0         469 KB
+    markupsafe-3.0.2           |   py39h5eee18b_0          24 KB
+    matplotlib-3.9.2           |   py39h06a4308_1           7 KB
+    matplotlib-base-3.9.2      |   py39hbfdbfaf_1         7.0 MB
+    mesalib-25.1.5             |       h31e3550_0         8.9 MB
+    ncurses-6.5                |       h7934f7d_0         1.1 MB
+    nomkl-3.0                  |                0          46 KB
+    numpy-2.0.2                |   py39hc213724_2          13 KB
+    numpy-base-2.0.2           |   py39hf387b04_2         7.4 MB
+    openblas-0.3.31            |       h06a4308_0          12 KB
+    openblas-devel-0.3.31      |       hf7dbefb_0          85 KB
+    openjpeg-2.5.4             |       h4e0627c_1          94 KB
+    openldap-2.6.12            |       hb446bd0_0         762 KB
+    openssl-3.5.5              |       h1b28b03_0         5.5 MB
+    osqp-1.0.4                 |   py39hb849edd_0         169 KB
+    packaging-25.0             |   py39h06a4308_1         160 KB
+    pillow-11.3.0              |   py39hb1c3d2d_0         826 KB
+    pip-26.0.1                 |     pyhc872135_0         1.1 MB
+    pixman-0.46.4              |       h7934f7d_0         1.9 MB
+    pybind11-abi-4             |       hd3eb1b0_1          14 KB
+    pycparser-2.23             |   py39h06a4308_0         224 KB
+    pyparsing-3.2.0            |   py39h06a4308_0         421 KB
+    pyqt-6.7.1                 |   py39h8dad735_2         5.0 MB
+    pyqt6-sip-13.9.1           |   py39h6ce4db3_2          80 KB
+    python-3.9.25              |       h0dcde21_1        23.0 MB
+    python-dateutil-2.9.0post0 |   py39h06a4308_2         279 KB
+    qtbase-6.7.3               |       h10a5587_4        11.9 MB
+    qtdeclarative-6.7.3        |       h7934f7d_1        16.2 MB
+    qtsvg-6.7.3                |       he4bddd1_1         291 KB
+    qttools-6.7.3              |       h5a8de97_1         6.6 MB
+    qtwebchannel-6.7.3         |       h7934f7d_1         153 KB
+    qtwebsockets-6.7.3         |       h7934f7d_1         135 KB
+    readline-8.3               |       hc2a1206_0         471 KB
+    scipy-1.13.1               |   py39heeff2f4_1        22.0 MB
+    scs-3.2.8                  |   py39hd8efbaf_0          77 KB
+    setuptools-72.1.0          |   py39h06a4308_0         2.4 MB
+    sip-6.10.0                 |   py39h6a678d5_0         563 KB
+    six-1.17.0                 |   py39h06a4308_0          31 KB
+    spirv-tools-2025.1         |       hdb19cb5_0         2.1 MB
+    sqlite-3.51.1              |       he0a8d7e_0         1.2 MB
+    tk-8.6.15                  |       h54e0aa7_0         3.4 MB
+    tomli-2.2.1                |   py39h06a4308_0          29 KB
+    tornado-6.5.1              |   py39h5eee18b_0         667 KB
+    tzdata-2025c               |       he532380_0         118 KB
+    wheel-0.45.1               |   py39h06a4308_0         114 KB
+    xcb-util-0.4.1             |       h5eee18b_2          19 KB
+    xcb-util-cursor-0.1.5      |       h5eee18b_0          19 KB
+    xcb-util-image-0.4.0       |       h5eee18b_2          23 KB
+    xcb-util-keysyms-0.4.1     |       h5eee18b_0          13 KB
+    xcb-util-renderutil-0.3.10 |       h5eee18b_0          16 KB
+    xcb-util-wm-0.4.2          |       h5eee18b_0          55 KB
+    xkeyboard-config-2.44      |       h382ed1a_1         887 KB
+    xorg-libice-1.1.2          |       h9b100fa_0          57 KB
+    xorg-libsm-1.2.6           |       h9b100fa_0          26 KB
+    xorg-libxext-1.3.6         |       h9b100fa_0          49 KB
+    xorg-libxfixes-6.0.1       |       h9b100fa_0          18 KB
+    xorg-libxrandr-1.5.4       |       h9b100fa_0          28 KB
+    xorg-libxrender-0.9.12     |       h9b100fa_0          31 KB
+    xorg-libxshmfence-1.3.3    |       h9b100fa_0          11 KB
+    xorg-libxxf86vm-1.1.6      |       h9b100fa_0          16 KB
+    zipp-3.21.0                |   py39h06a4308_0          26 KB
+    zlib-1.3.1                 |       hb25bd0a_0          96 KB
+    zstd-1.5.7                 |       h11fc155_0         608 KB
+    ------------------------------------------------------------
+                                           Total:       222.6 MB
+
+The following NEW packages will be INSTALLED:
+
+  _libgcc_mutex      pkgs/main/linux-64::_libgcc_mutex-0.1-main 
+  _openmp_mutex      pkgs/main/linux-64::_openmp_mutex-5.1-1_gnu 
+  aom                pkgs/main/linux-64::aom-3.12.1-h7934f7d_0 
+  blas               pkgs/main/linux-64::blas-1.0-openblas 
+  bzip2              pkgs/main/linux-64::bzip2-1.0.8-h5eee18b_6 
+  c-ares             pkgs/main/linux-64::c-ares-1.34.6-hd44998d_0 
+  ca-certificates    pkgs/main/linux-64::ca-certificates-2025.12.2-h06a4308_0 
+  cairo              pkgs/main/linux-64::cairo-1.18.4-h44eff21_0 
+  cffi               pkgs/main/linux-64::cffi-2.0.0-py39h4eded50_0 
+  clarabel           pkgs/main/linux-64::clarabel-0.11.1-py39h1c792f7_0 
+  contourpy          pkgs/main/linux-64::contourpy-1.2.1-py39hdb19cb5_1 
+  cvxpy              pkgs/main/linux-64::cvxpy-1.7.2-py39h06a4308_0 
+  cvxpy-base         pkgs/main/linux-64::cvxpy-base-1.7.2-py39hbdd6827_0 
+  cycler             pkgs/main/noarch::cycler-0.11.0-pyhd3eb1b0_0 
+  cyrus-sasl         pkgs/main/linux-64::cyrus-sasl-2.1.28-h1110e0f_3 
+  dav1d              pkgs/main/linux-64::dav1d-1.2.1-h5eee18b_0 
+  expat              pkgs/main/linux-64::expat-2.7.4-h7354ed3_0 
+  fontconfig         pkgs/main/linux-64::fontconfig-2.15.0-h2c49b7f_0 
+  fonttools          pkgs/main/linux-64::fonttools-4.60.1-py39hee96239_0 
+  freetype           pkgs/main/linux-64::freetype-2.14.1-hf5b9546_0 
+  fribidi            pkgs/main/linux-64::fribidi-1.0.16-h9fb5f84_0 
+  gettext            pkgs/main/linux-64::gettext-0.25.1-h92eb808_0 
+  gettext-tools      pkgs/main/linux-64::gettext-tools-0.25.1-h6a67909_0 
+  graphite2          pkgs/main/linux-64::graphite2-1.3.14-h295c915_1 
+  harfbuzz           pkgs/main/linux-64::harfbuzz-10.2.0-hdfddeaa_1 
+  icu                pkgs/main/linux-64::icu-73.1-h6a678d5_0 
+  importlib_resourc~ pkgs/main/linux-64::importlib_resources-6.5.2-py39h06a4308_0 
+  jansson            pkgs/main/linux-64::jansson-2.14-h5eee18b_1 
+  jinja2             pkgs/main/linux-64::jinja2-3.1.6-py39h06a4308_0 
+  joblib             pkgs/main/linux-64::joblib-1.5.2-py39h06a4308_0 
+  jpeg               pkgs/main/linux-64::jpeg-9f-h5ce9db8_0 
+  kiwisolver         pkgs/main/linux-64::kiwisolver-1.4.4-py39h6a678d5_0 
+  lcms2              pkgs/main/linux-64::lcms2-2.17-heab6991_0 
+  ld_impl_linux-64   pkgs/main/linux-64::ld_impl_linux-64-2.44-h153f514_2 
+  lerc               pkgs/main/linux-64::lerc-4.0.0-h6a678d5_0 
+  libabseil          pkgs/main/linux-64::libabseil-20250127.0-cxx17_h6a678d5_0 
+  libasprintf        pkgs/main/linux-64::libasprintf-0.25.1-hf2ab22a_0 
+  libasprintf-devel  pkgs/main/linux-64::libasprintf-devel-0.25.1-hf2ab22a_0 
+  libavif            pkgs/main/linux-64::libavif-1.3.0-h3539ee5_0 
+  libcups            pkgs/main/linux-64::libcups-2.4.15-hbe4054b_0 
+  libcurl            pkgs/main/linux-64::libcurl-8.17.0-hc93bc37_0 
+  libdeflate         pkgs/main/linux-64::libdeflate-1.22-h5eee18b_0 
+  libdrm             pkgs/main/linux-64::libdrm-2.4.124-h5eee18b_0 
+  libedit            pkgs/main/linux-64::libedit-3.1.20230828-h5eee18b_0 
+  libegl             pkgs/main/linux-64::libegl-1.7.0-h5eee18b_2 
+  libev              pkgs/main/linux-64::libev-4.33-h7f8727e_1 
+  libevent           pkgs/main/linux-64::libevent-2.1.12-hdbd6064_1 
+  libexpat           pkgs/main/linux-64::libexpat-2.7.4-h7354ed3_0 
+  libffi             pkgs/main/linux-64::libffi-3.4.4-h6a678d5_1 
+  libgcc             pkgs/main/linux-64::libgcc-15.2.0-h69a1729_7 
+  libgcc-ng          pkgs/main/linux-64::libgcc-ng-15.2.0-h166f726_7 
+  libgettextpo       pkgs/main/linux-64::libgettextpo-0.25.1-hf2ab22a_0 
+  libgettextpo-devel pkgs/main/linux-64::libgettextpo-devel-0.25.1-hf2ab22a_0 
+  libgfortran        pkgs/main/linux-64::libgfortran-15.2.0-h166f726_7 
+  libgfortran-ng     pkgs/main/linux-64::libgfortran-ng-15.2.0-h166f726_7 
+  libgfortran5       pkgs/main/linux-64::libgfortran5-15.2.0-hc633d37_7 
+  libgl              pkgs/main/linux-64::libgl-1.7.0-h5eee18b_2 
+  libglib            pkgs/main/linux-64::libglib-2.84.2-h37c7471_0 
+  libglvnd           pkgs/main/linux-64::libglvnd-1.7.0-h5eee18b_2 
+  libglx             pkgs/main/linux-64::libglx-1.7.0-h5eee18b_2 
+  libgomp            pkgs/main/linux-64::libgomp-15.2.0-h4751f2c_7 
+  libiconv           pkgs/main/linux-64::libiconv-1.18-h75a1612_0 
+  libidn2            pkgs/main/linux-64::libidn2-2.3.8-hf80d704_0 
+  libkrb5            pkgs/main/linux-64::libkrb5-1.21.3-h520c7b4_4 
+  libllvm15          pkgs/main/linux-64::libllvm15-15.0.7-he89c38a_4 
+  libnghttp2         pkgs/main/linux-64::libnghttp2-1.67.1-h697f920_0 
+  libnsl             pkgs/main/linux-64::libnsl-2.0.0-h5eee18b_0 
+  libopenblas        pkgs/main/linux-64::libopenblas-0.3.31-hf7dbefb_0 
+  libopenjpeg        pkgs/main/linux-64::libopenjpeg-2.5.4-hee96239_1 
+  libosqp            pkgs/main/linux-64::libosqp-1.0.0-ha949e79_1 
+  libpciaccess       pkgs/main/linux-64::libpciaccess-0.18-h5eee18b_0 
+  libpng             pkgs/main/linux-64::libpng-1.6.54-hee55ce4_0 
+  libpq              pkgs/main/linux-64::libpq-17.6-ha51bf15_0 
+  libprotobuf        pkgs/main/linux-64::libprotobuf-5.29.3-h3cdef7c_1 
+  libsodium          pkgs/main/linux-64::libsodium-1.0.20-heac8642_0 
+  libssh2            pkgs/main/linux-64::libssh2-1.11.1-h251f7ec_0 
+  libstdcxx          pkgs/main/linux-64::libstdcxx-15.2.0-h39759b7_7 
+  libstdcxx-ng       pkgs/main/linux-64::libstdcxx-ng-15.2.0-hc03a8fd_7 
+  libtiff            pkgs/main/linux-64::libtiff-4.7.1-h029b1ac_0 
+  libunistring       pkgs/main/linux-64::libunistring-1.3-hb25bd0a_0 
+  libuuid            pkgs/main/linux-64::libuuid-1.41.5-h5eee18b_0 
+  libwebp-base       pkgs/main/linux-64::libwebp-base-1.6.0-hb7bb969_0 
+  libxcb             pkgs/main/linux-64::libxcb-1.17.0-h9b100fa_0 
+  libxkbcommon       pkgs/main/linux-64::libxkbcommon-1.9.1-h69220b7_0 
+  libxml2            pkgs/main/linux-64::libxml2-2.13.9-h2c43086_0 
+  libzlib            pkgs/main/linux-64::libzlib-1.3.1-hb25bd0a_0 
+  lmdb               pkgs/main/linux-64::lmdb-0.9.31-hb25bd0a_0 
+  lz4-c              pkgs/main/linux-64::lz4-c-1.9.4-h6a678d5_1 
+  markupsafe         pkgs/main/linux-64::markupsafe-3.0.2-py39h5eee18b_0 
+  matplotlib         pkgs/main/linux-64::matplotlib-3.9.2-py39h06a4308_1 
+  matplotlib-base    pkgs/main/linux-64::matplotlib-base-3.9.2-py39hbfdbfaf_1 
+  mesalib            pkgs/main/linux-64::mesalib-25.1.5-h31e3550_0 
+  mysql              pkgs/main/linux-64::mysql-8.4.0-h721767e_2 
+  ncurses            pkgs/main/linux-64::ncurses-6.5-h7934f7d_0 
+  nomkl              pkgs/main/linux-64::nomkl-3.0-0 
+  numpy              pkgs/main/linux-64::numpy-2.0.2-py39hc213724_2 
+  numpy-base         pkgs/main/linux-64::numpy-base-2.0.2-py39hf387b04_2 
+  openblas           pkgs/main/linux-64::openblas-0.3.31-h06a4308_0 
+  openblas-devel     pkgs/main/linux-64::openblas-devel-0.3.31-hf7dbefb_0 
+  openjpeg           pkgs/main/linux-64::openjpeg-2.5.4-h4e0627c_1 
+  openldap           pkgs/main/linux-64::openldap-2.6.12-hb446bd0_0 
+  openssl            pkgs/main/linux-64::openssl-3.5.5-h1b28b03_0 
+  osqp               pkgs/main/linux-64::osqp-1.0.4-py39hb849edd_0 
+  packaging          pkgs/main/linux-64::packaging-25.0-py39h06a4308_1 
+  pcre2              pkgs/main/linux-64::pcre2-10.42-hebb0a14_1 
+  pillow             pkgs/main/linux-64::pillow-11.3.0-py39hb1c3d2d_0 
+  pip                pkgs/main/noarch::pip-26.0.1-pyhc872135_0 
+  pixman             pkgs/main/linux-64::pixman-0.46.4-h7934f7d_0 
+  pthread-stubs      pkgs/main/linux-64::pthread-stubs-0.3-h0ce48e5_1 
+  pybind11-abi       pkgs/main/noarch::pybind11-abi-4-hd3eb1b0_1 
+  pycparser          pkgs/main/linux-64::pycparser-2.23-py39h06a4308_0 
+  pyparsing          pkgs/main/linux-64::pyparsing-3.2.0-py39h06a4308_0 
+  pyqt               pkgs/main/linux-64::pyqt-6.7.1-py39h8dad735_2 
+  pyqt6-sip          pkgs/main/linux-64::pyqt6-sip-13.9.1-py39h6ce4db3_2 
+  python             pkgs/main/linux-64::python-3.9.25-h0dcde21_1 
+  python-dateutil    pkgs/main/linux-64::python-dateutil-2.9.0post0-py39h06a4308_2 
+  qtbase             pkgs/main/linux-64::qtbase-6.7.3-h10a5587_4 
+  qtdeclarative      pkgs/main/linux-64::qtdeclarative-6.7.3-h7934f7d_1 
+  qtsvg              pkgs/main/linux-64::qtsvg-6.7.3-he4bddd1_1 
+  qttools            pkgs/main/linux-64::qttools-6.7.3-h5a8de97_1 
+  qtwebchannel       pkgs/main/linux-64::qtwebchannel-6.7.3-h7934f7d_1 
+  qtwebsockets       pkgs/main/linux-64::qtwebsockets-6.7.3-h7934f7d_1 
+  readline           pkgs/main/linux-64::readline-8.3-hc2a1206_0 
+  scipy              pkgs/main/linux-64::scipy-1.13.1-py39heeff2f4_1 
+  scs                pkgs/main/linux-64::scs-3.2.8-py39hd8efbaf_0 
+  setuptools         pkgs/main/linux-64::setuptools-72.1.0-py39h06a4308_0 
+  sip                pkgs/main/linux-64::sip-6.10.0-py39h6a678d5_0 
+  six                pkgs/main/linux-64::six-1.17.0-py39h06a4308_0 
+  spirv-tools        pkgs/main/linux-64::spirv-tools-2025.1-hdb19cb5_0 
+  sqlite             pkgs/main/linux-64::sqlite-3.51.1-he0a8d7e_0 
+  tk                 pkgs/main/linux-64::tk-8.6.15-h54e0aa7_0 
+  tomli              pkgs/main/linux-64::tomli-2.2.1-py39h06a4308_0 
+  tornado            pkgs/main/linux-64::tornado-6.5.1-py39h5eee18b_0 
+  tzdata             pkgs/main/noarch::tzdata-2025c-he532380_0 
+  wheel              pkgs/main/linux-64::wheel-0.45.1-py39h06a4308_0 
+  xcb-util           pkgs/main/linux-64::xcb-util-0.4.1-h5eee18b_2 
+  xcb-util-cursor    pkgs/main/linux-64::xcb-util-cursor-0.1.5-h5eee18b_0 
+  xcb-util-image     pkgs/main/linux-64::xcb-util-image-0.4.0-h5eee18b_2 
+  xcb-util-keysyms   pkgs/main/linux-64::xcb-util-keysyms-0.4.1-h5eee18b_0 
+  xcb-util-renderut~ pkgs/main/linux-64::xcb-util-renderutil-0.3.10-h5eee18b_0 
+  xcb-util-wm        pkgs/main/linux-64::xcb-util-wm-0.4.2-h5eee18b_0 
+  xkeyboard-config   pkgs/main/linux-64::xkeyboard-config-2.44-h382ed1a_1 
+  xorg-libice        pkgs/main/linux-64::xorg-libice-1.1.2-h9b100fa_0 
+  xorg-libsm         pkgs/main/linux-64::xorg-libsm-1.2.6-h9b100fa_0 
+  xorg-libx11        pkgs/main/linux-64::xorg-libx11-1.8.12-h9b100fa_1 
+  xorg-libxau        pkgs/main/linux-64::xorg-libxau-1.0.12-h9b100fa_0 
+  xorg-libxdmcp      pkgs/main/linux-64::xorg-libxdmcp-1.1.5-h9b100fa_0 
+  xorg-libxext       pkgs/main/linux-64::xorg-libxext-1.3.6-h9b100fa_0 
+  xorg-libxfixes     pkgs/main/linux-64::xorg-libxfixes-6.0.1-h9b100fa_0 
+  xorg-libxrandr     pkgs/main/linux-64::xorg-libxrandr-1.5.4-h9b100fa_0 
+  xorg-libxrender    pkgs/main/linux-64::xorg-libxrender-0.9.12-h9b100fa_0 
+  xorg-libxshmfence  pkgs/main/linux-64::xorg-libxshmfence-1.3.3-h9b100fa_0 
+  xorg-libxxf86vm    pkgs/main/linux-64::xorg-libxxf86vm-1.1.6-h9b100fa_0 
+  xorg-xorgproto     pkgs/main/linux-64::xorg-xorgproto-2024.1-h5eee18b_1 
+  xz                 pkgs/main/linux-64::xz-5.6.4-h5eee18b_1 
+  zipp               pkgs/main/linux-64::zipp-3.21.0-py39h06a4308_0 
+  zlib               pkgs/main/linux-64::zlib-1.3.1-hb25bd0a_0 
+  zstd               pkgs/main/linux-64::zstd-1.5.7-h11fc155_0 
+
+
+
+Downloading and Extracting Packages: ...working...libllvm15-15.0.7     | 35.4 MB   |            |   0% 
+python-3.9.25        | 23.0 MB   |            |   0% [A
+
+scipy-1.13.1         | 22.0 MB   |            |   0% [A[A
+
+
+qtdeclarative-6.7.3  | 16.2 MB   |            |   0% [A[A[A
+
+
+
+qtbase-6.7.3         | 11.9 MB   |            |   0% [A[A[A[A
+
+
+
+
+mesalib-25.1.5       | 8.9 MB    |            |   0% [A[A[A[A[A
+
+
+
+
+
+numpy-base-2.0.2     | 7.4 MB    |            |   0% [A[A[A[A[A[A
+
+
+
+
+
+
+matplotlib-base-3.9. | 7.0 MB    |            |   0% [A[A[A[A[A[A[A
+
+
+
+
+
+
+
+qttools-6.7.3        | 6.6 MB    |            |   0% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+libopenblas-0.3.31   | 5.7 MB    |            |   0% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+openssl-3.5.5        | 5.5 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+pyqt-6.7.1           | 5.0 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+libcups-2.4.15       | 4.4 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+libstdcxx-15.2.0     | 3.7 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+fonttools-4.60.1     | 3.7 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+gettext-tools-0.25.1 | 3.6 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libprotobuf-5.29.3   | 3.5 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+tk-8.6.15            | 3.4 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+aom-3.12.1           | 2.8 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ... (more hidden) ...[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[Alibllvm15-15.0.7     | 35.4 MB   | #1         |  12% 
+python-3.9.25        | 23.0 MB   | 4          |   4% [A
+
+
+qtdeclarative-6.7.3  | 16.2 MB   | 1          |   1% [A[A[A
+
+scipy-1.13.1         | 22.0 MB   |            |   0% [A[A
+
+
+
+qtbase-6.7.3         | 11.9 MB   |            |   0% [A[A[A[Alibllvm15-15.0.7     | 35.4 MB   | ####7      |  47% 
+python-3.9.25        | 23.0 MB   | #####      |  50% [A
+
+
+qtdeclarative-6.7.3  | 16.2 MB   | #########5 |  96% [A[A[A
+
+scipy-1.13.1         | 22.0 MB   | #######4   |  74% [A[A
+
+
+
+qtbase-6.7.3         | 11.9 MB   | #########5 |  96% [A[A[A[A
+
+
+qtdeclarative-6.7.3  | 16.2 MB   | ########## | 100% [A[A[Alibllvm15-15.0.7     | 35.4 MB   | #######5   |  76% 
+
+
+
+qtbase-6.7.3         | 11.9 MB   | ########## | 100% [A[A[A[A
+python-3.9.25        | 23.0 MB   | #######8   |  79% [A
+
+
+
+
+mesalib-25.1.5       | 8.9 MB    |            |   0% [A[A[A[A[A
+
+
+
+
+
+numpy-base-2.0.2     | 7.4 MB    |            |   0% [A[A[A[A[A[A
+
+scipy-1.13.1         | 22.0 MB   | ########## | 100% [A[A
+python-3.9.25        | 23.0 MB   | ########## | 100% [A
+
+
+
+
+
+numpy-base-2.0.2     | 7.4 MB    | ########## | 100% [A[A[A[A[A[A
+
+
+
+
+mesalib-25.1.5       | 8.9 MB    | ########## | 100% [A[A[A[A[A
+
+
+
+
+mesalib-25.1.5       | 8.9 MB    | ########## | 100% [A[A[A[A[Alibllvm15-15.0.7     | 35.4 MB   | ########## | 100% 
+
+
+
+
+
+
+
+
+
+openssl-3.5.5        | 5.5 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+libopenblas-0.3.31   | 5.7 MB    |            |   0% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+matplotlib-base-3.9. | 7.0 MB    |            |   0% [A[A[A[A[A[A[A
+
+
+
+
+
+
+
+qttools-6.7.3        | 6.6 MB    |            |   0% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+pyqt-6.7.1           | 5.0 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+pyqt-6.7.1           | 5.0 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+openssl-3.5.5        | 5.5 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+qttools-6.7.3        | 6.6 MB    | ########## | 100% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+matplotlib-base-3.9. | 7.0 MB    | ########## | 100% [A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+libopenblas-0.3.31   | 5.7 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+fonttools-4.60.1     | 3.7 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+libstdcxx-15.2.0     | 3.7 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+libcups-2.4.15       | 4.4 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+gettext-tools-0.25.1 | 3.6 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libprotobuf-5.29.3   | 3.5 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+gettext-tools-0.25.1 | 3.6 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+fonttools-4.60.1     | 3.7 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libprotobuf-5.29.3   | 3.5 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+libstdcxx-15.2.0     | 3.7 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+aom-3.12.1           | 2.8 MB    |            |   1% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+tk-8.6.15            | 3.4 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ... (more hidden) ...[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+qtbase-6.7.3         | 11.9 MB   | ########## | 100% [A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+tk-8.6.15            | 3.4 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+tk-8.6.15            | 3.4 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+libcups-2.4.15       | 4.4 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+libcups-2.4.15       | 4.4 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ... (more hidden) ...[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ... (more hidden) ...[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+aom-3.12.1           | 2.8 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+aom-3.12.1           | 2.8 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+scipy-1.13.1         | 22.0 MB   | ########## | 100% [A[A
+python-3.9.25        | 23.0 MB   | ########## | 100% [A
+
+
+
+
+mesalib-25.1.5       | 8.9 MB    | ########## | 100% [A[A[A[A[Alibllvm15-15.0.7     | 35.4 MB   | ########## | 100% 
+
+
+
+
+
+
+
+
+
+openssl-3.5.5        | 5.5 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+openssl-3.5.5        | 5.5 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A
+
+
+qtdeclarative-6.7.3  | 16.2 MB   | ########## | 100% [A[A[A
+
+
+
+
+
+
+
+
+
+
+pyqt-6.7.1           | 5.0 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+pyqt-6.7.1           | 5.0 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+qttools-6.7.3        | 6.6 MB    | ########## | 100% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+qttools-6.7.3        | 6.6 MB    | ########## | 100% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+libopenblas-0.3.31   | 5.7 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+libopenblas-0.3.31   | 5.7 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+numpy-base-2.0.2     | 7.4 MB    | ########## | 100% [A[A[A[A[A[A
+
+
+
+
+
+numpy-base-2.0.2     | 7.4 MB    | ########## | 100% [A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+gettext-tools-0.25.1 | 3.6 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+gettext-tools-0.25.1 | 3.6 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+matplotlib-base-3.9. | 7.0 MB    | ########## | 100% [A[A[A[A[A[A[A
+
+
+
+
+
+
+matplotlib-base-3.9. | 7.0 MB    | ########## | 100% [A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+libstdcxx-15.2.0     | 3.7 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+libstdcxx-15.2.0     | 3.7 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libprotobuf-5.29.3   | 3.5 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libprotobuf-5.29.3   | 3.5 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+tk-8.6.15            | 3.4 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A

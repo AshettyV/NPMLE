@@ -110,62 +110,38 @@ log_resources
 # Load required modules
 log_section "Loading Modules"
 update_status "LOADING_MODULES"
-module load miniforge 2>&1 | tee -a "$LOG_FILE"
-# module load conda
-# module load cuda/12.0
-# module load anaconda3
+module load anaconda3/2025.06 2>&1 | tee -a "$LOG_FILE"
 
 # Initialize conda for this shell
 # (Required because non-interactive shells don't source .bashrc)
 log "Searching for conda installation..."
 log "  CONDA_PATH (from config)=$CONDA_PATH"
-log "  CONDA_PREFIX=$CONDA_PREFIX"
-log "  MAMBA_ROOT_PREFIX=$MAMBA_ROOT_PREFIX"
 
-# Try multiple methods to initialize conda
-CONDA_FOUND=0
+# Initialize conda directly using the conda path from config
+log "Initializing conda from: $CONDA_PATH"
+eval "$($CONDA_PATH/bin/conda shell.bash hook)"
 
-# First, check if user specified a path in config
-if [ -n "$CONDA_PATH" ] && [ -f "$CONDA_PATH/etc/profile.d/conda.sh" ]; then
-    log "Found conda at CONDA_PATH: $CONDA_PATH"
-    source "$CONDA_PATH/etc/profile.d/conda.sh"
-    CONDA_FOUND=1
-elif command -v conda &> /dev/null; then
-    log "Found conda in PATH"
-    eval "$(conda shell.bash hook)"
-    CONDA_FOUND=1
-elif [ -n "$MAMBA_ROOT_PREFIX" ] && [ -f "$MAMBA_ROOT_PREFIX/etc/profile.d/conda.sh" ]; then
-    log "Found conda via MAMBA_ROOT_PREFIX: $MAMBA_ROOT_PREFIX"
-    source "$MAMBA_ROOT_PREFIX/etc/profile.d/conda.sh"
-    CONDA_FOUND=1
-elif [ -n "$CONDA_PREFIX" ] && [ -f "$CONDA_PREFIX/etc/profile.d/conda.sh" ]; then
-    log "Found conda via CONDA_PREFIX: $CONDA_PREFIX"
-    source "$CONDA_PREFIX/etc/profile.d/conda.sh"
-    CONDA_FOUND=1
-elif [ -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
-    log "Found conda at $HOME/miniforge3"
-    source "$HOME/miniforge3/etc/profile.d/conda.sh"
-    CONDA_FOUND=1
-elif [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
-    log "Found conda at $HOME/miniconda3"
-    source "$HOME/miniconda3/etc/profile.d/conda.sh"
-    CONDA_FOUND=1
-elif [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
-    log "Found conda at $HOME/anaconda3"
-    source "$HOME/anaconda3/etc/profile.d/conda.sh"
-    CONDA_FOUND=1
-fi
-
-if [ $CONDA_FOUND -eq 0 ]; then
-    log "ERROR: Could not find conda installation"
-    log "Please set CONDA_PATH in npmle_config.sh to your conda installation"
-    log "Example: CONDA_PATH=/path/to/miniforge3"
-    exit 1
+# Check if the Conda environment exists, and create it if it doesn't
+if ! $CONDA_PATH/bin/conda env list | grep -q "^$CONDA_ENV "; then
+    log "Conda environment $CONDA_ENV not found. Creating it..."
+    
+    # Accept Conda ToS for required channels
+    log "Accepting Conda Terms of Service..."
+    $CONDA_PATH/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>&1 | tee -a "$LOG_FILE"
+    $CONDA_PATH/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>&1 | tee -a "$LOG_FILE"
+    
+    log "Running: $CONDA_PATH/bin/conda create -n $CONDA_ENV -y --override-channels --channel https://repo.anaconda.com/pkgs/main --channel https://repo.anaconda.com/pkgs/r python=3.9 numpy scipy matplotlib cvxpy"
+    $CONDA_PATH/bin/conda create -n "$CONDA_ENV" -y --override-channels --channel https://repo.anaconda.com/pkgs/main --channel https://repo.anaconda.com/pkgs/r python=3.9 numpy scipy matplotlib cvxpy 2>&1 | tee -a "$LOG_FILE"
+    if [ $? -ne 0 ]; then
+        log "ERROR: Failed to create Conda environment $CONDA_ENV"
+        log "Please check the conda output above for details"
+        exit 1
+    fi
 fi
 
 # Activate conda environment
 log "Activating conda environment: $CONDA_ENV"
-conda activate "$CONDA_ENV" || { log "ERROR: Failed to activate $CONDA_ENV"; exit 1; }
+$CONDA_PATH/bin/conda activate "$CONDA_ENV" || { log "ERROR: Failed to activate $CONDA_ENV"; exit 1; }
 
 # Verify python is available
 if ! command -v python &> /dev/null; then

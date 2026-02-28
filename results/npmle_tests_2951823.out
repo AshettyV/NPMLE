@@ -1,0 +1,46 @@
+==============================================
+NPMLE Experiment Starting
+==============================================
+Log file:      /home/jas10184/NPMLE/results_2951823/logs/experiment.log
+Status file:   /home/jas10184/NPMLE/results_2951823/logs/status.txt
+Resource log:  /home/jas10184/NPMLE/results_2951823/logs/resources.log
+Output dir:    /home/jas10184/NPMLE/results_2951823
+
+To monitor: tail -f /home/jas10184/NPMLE/results_2951823/logs/experiment.log
+==============================================
+
+==============================================================================
+[2026-02-28 11:37:51] NPMLE Tests - Starting Job
+==============================================================================
+[2026-02-28 11:37:51] Job ID: 2951823
+[2026-02-28 11:37:51] Node: cs644
+[2026-02-28 11:37:51] CPUs: 120
+[2026-02-28 11:37:51] GPUs: 
+[2026-02-28 11:37:51] Working directory: /home/jas10184/NPMLE
+[2026-02-28 11:37:51] Output directory: /home/jas10184/NPMLE/results_2951823
+[2026-02-28 11:37:51] Log file: /home/jas10184/NPMLE/results_2951823/logs/experiment.log
+[2026-02-28 11:37:51] STATUS: INITIALIZING
+[2026-02-28 11:37:51] Created symlink: /home/jas10184/NPMLE/latest -> /home/jas10184/NPMLE/results_2951823
+
+==============================================================================
+[2026-02-28 11:37:51] Loading Modules
+==============================================================================
+[2026-02-28 11:37:51] STATUS: LOADING_MODULES
+[2026-02-28 11:37:52] Searching for conda installation...
+[2026-02-28 11:37:52]   CONDA_PATH (from config)=/share/apps/anaconda3/2025.06
+[2026-02-28 11:37:52] Initializing conda from: /share/apps/anaconda3/2025.06
+[2026-02-28 11:38:08] Conda environment trial_env not found. Creating it...
+[2026-02-28 11:38:08] Running: /share/apps/anaconda3/2025.06/bin/conda create -n trial_env -y python=3.9 numpy scipy matplotlib cvxpy
+
+CondaToSNonInteractiveError: Terms of Service have not been accepted for the following channels. Please accept or remove them before proceeding:
+    • https://repo.anaconda.com/pkgs/main
+    • https://repo.anaconda.com/pkgs/r
+
+To accept a channel's Terms of Service, run the following and replace `CHANNEL` with the channel name/URL:
+    ‣ conda tos accept --override-channels --channel CHANNEL
+
+To remove channels with rejected Terms of Service, run the following and replace `CHANNEL` with the channel name/URL:
+    ‣ conda config --remove channels CHANNEL
+
+[2026-02-28 11:38:11] Activating conda environment: trial_env
+[2026-02-28 11:38:15] ERROR: Failed to activate trial_env
