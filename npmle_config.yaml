@@ -110,8 +110,11 @@ conda:
   # Conda installation path
   path: "/share/apps/anaconda3/2025.06"
 
-  # Conda environment name to activate
-  env: "trial_env"
+  # Conda environment: name (e.g. trial_env) or full path.
+  # To avoid "Disk quota exceeded", use a path on scratch (create env once with --prefix):
+  #   env: "$SCRATCH/conda_envs/trial_env"
+  # Then run once: conda create --prefix $SCRATCH/conda_envs/trial_env -y python=3.9 numpy scipy matplotlib cvxpy
+  env: "$SCRATCH/jas10184/conda_envs/trial_env"
 
   # Python packages to install/upgrade before running
   pip_packages:
