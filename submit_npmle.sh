@@ -24,6 +24,9 @@ cd "$WORK_DIR"
 # Source shared configuration (parses YAML config)
 source "${WORK_DIR}/parse_config.sh"
 
+# Ensure $SCRATCH is set so CONDA_ENV can expand (e.g. on NYU Torch, /scratch/NetID)
+export SCRATCH=${SCRATCH:-/scratch/$USER}
+
 # Expand env vars in CONDA_ENV (e.g. $SCRATCH/conda_envs/trial_env) so scratch paths work
 CONDA_ENV=$(eval echo "$CONDA_ENV")
 

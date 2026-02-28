@@ -100,3 +100,81 @@ The script will activate the env at the path you set (no env creation in the job
 - **No backups** – If the env is lost, run Step 3 again.
 - **60-day purging** – Scratch may purge files not accessed for 60+ days. If the env disappears after a long break, recreate it with Step 3 and keep Step 4 as-is.
 - Keep your **code and config** (this repo, `npmle_config.yaml`) in **$HOME**; use scratch only for the conda env and large run/result data.
+
+---
+
+## "Disk quota exceeded" (e.g. when running `git pull`)
+
+This means your **home directory** is over its 50 GB or 30K-inode limit. Git writes into `.git/` in your repo (in home), so `git pull` fails until you free space.
+
+### 1. Check how much you're using
+
+On NYU HPC:
+
+```bash
+myquota
+```
+
+Or:
+
+```bash
+du -sh $HOME
+du -sh $HOME/.conda
+```
+
+### 2. Free space in home
+
+**Conda package cache (often the biggest):**
+
+If you ever ran conda from home, the cache is in `~/.conda/pkgs` and can be several GB. Clear it (you can re-download packages when needed).
+
+Bash doesn't know `conda` until you load it or use the full path. Use **one** of these:
+
+```bash
+# Option A: Load the module, then run conda (NYU HPC)
+module load anaconda3/2025.06
+conda clean --all -y
+```
+
+```bash
+# Option B: Use the full path so you don't need to load conda (works even if "conda: command not found")
+/share/apps/anaconda3/2025.06/bin/conda clean --all -y
+```
+
+If your cluster uses a different path, replace it with the one in your `npmle_config.yaml` under `conda.path`.
+
+**Old run outputs and logs:**
+
+Move large result/log directories to scratch so home stays under quota:
+
+```bash
+# Example: move old result dirs to scratch
+mkdir -p $SCRATCH/NPMLE_archive
+mv ~/NPMLE/results_* $SCRATCH/NPMLE_archive/
+mv ~/NPMLE/results/*.out $SCRATCH/NPMLE_archive/ 2>/dev/null
+```
+
+Delete anything you don't need from `~/NPMLE/results/` and `~/NPMLE/results_*/`.
+
+**Other large files:**
+
+```bash
+du -sh $HOME/* $HOME/.* 2>/dev/null | sort -h
+```
+
+Move or delete large items you don't need (e.g. old envs in `~/.conda/envs` if you're now using the scratch env).
+
+### 3. Retry `git pull`
+
+After freeing enough space:
+
+```bash
+cd ~/NPMLE
+git pull
+```
+
+### 4. Avoid filling home again
+
+- Keep the conda env and package cache on **scratch** (Steps 2–3 above).
+- Keep **job outputs** (e.g. `results_*`, large `.out`/`.pkl` files) on scratch or archive them there; only keep the repo and configs in home.
+- Periodically run `conda clean --all -y` if you use conda from home at all.
