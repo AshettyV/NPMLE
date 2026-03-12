@@ -26,7 +26,7 @@ experiment:
   # Log10 of maximum sample size (n_max=5 means 10^5=100,000)
   n_max: 3
 
-  # Which experiment to run: "sos", "2pt", or "both"
+  # Which experiment to run: "sos", "2pt", "gaussian", "quadratic", "both", or "all"
   type: "both"
 
   # True mean (mu) for all experiments
@@ -87,6 +87,26 @@ two_point:
 
   # Truncation bound B for truncated mean estimator
   B: 10.0
+
+# -----------------------------------------------------------------------------
+# Gaussian Prior Experiment Parameters
+# -----------------------------------------------------------------------------
+# Prior: homoskedastic, X_i ~ N(mu, sigma^2) for all i
+
+gaussian_prior:
+  si: 5.0
+  si_min: 0.5
+  si_max: 100.0
+
+# -----------------------------------------------------------------------------
+# Quadratic Variance Prior Experiment Parameters
+# -----------------------------------------------------------------------------
+# Prior: sigma_i = c * i for observation i (variance = (c*i)^2)
+
+quadratic_variance:
+  c: 0.1
+  si_min: 0.01
+  si_max: 500.0
 
 # -----------------------------------------------------------------------------
 # Paths
