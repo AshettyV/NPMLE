@@ -133,7 +133,11 @@ conda:
   # Conda environment: must be the FULL PATH to your env (NYU HPC batch script requirement).
   # Create env on scratch first: conda create --prefix $SCRATCH/conda_envs/trial_env -y python=3.9 numpy scipy matplotlib cvxpy
   # Then set env below. On the cluster $SCRATCH = /scratch/NetID; when testing locally use the literal path.
+<<<<<<< HEAD
+  env: "$SCRATCH/.penv"
+=======
   env: "$SCRATCH/conda_envs/trial_env"
+>>>>>>> 1f2c28616e9377b4c5d3b52410949fd7a2aaa58e
   # Example literal path (replace jas10184 with your NetID): "/scratch/jas10184/conda_envs/trial_env"
 
   # Python packages to install/upgrade before running
