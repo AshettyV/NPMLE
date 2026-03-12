@@ -24,6 +24,12 @@ cd "$WORK_DIR"
 # Source shared configuration (parses YAML config)
 source "${WORK_DIR}/parse_config.sh"
 
+# Ensure $SCRATCH is set so CONDA_ENV can expand (e.g. on NYU Torch, /scratch/NetID)
+export SCRATCH=${SCRATCH:-/scratch/$USER}
+
+# Expand env vars in CONDA_ENV (e.g. $SCRATCH/conda_envs/trial_env) so scratch paths work
+CONDA_ENV=$(eval echo "$CONDA_ENV")
+
 # Create output and log directories
 OUTPUT_DIR="${BASE_DIR}/results_${SLURM_JOB_ID}"
 LOG_DIR="${OUTPUT_DIR}/logs"
@@ -121,20 +127,42 @@ log "  CONDA_PATH (from config)=$CONDA_PATH"
 log "Initializing conda from: $CONDA_PATH"
 eval "$($CONDA_PATH/bin/conda shell.bash hook)"
 
-# Check if the Conda environment exists, and create it if it doesn't
-if ! $CONDA_PATH/bin/conda env list | grep -q "^$CONDA_ENV "; then
-    log "Conda environment $CONDA_ENV not found. Creating it..."
-    
-    # Accept Conda ToS for required channels
-    log "Accepting Conda Terms of Service..."
-    $CONDA_PATH/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>&1 | tee -a "$LOG_FILE"
-    $CONDA_PATH/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>&1 | tee -a "$LOG_FILE"
-    
-    log "Running: $CONDA_PATH/bin/conda create -n $CONDA_ENV -y --override-channels --channel https://repo.anaconda.com/pkgs/main --channel https://repo.anaconda.com/pkgs/r python=3.9 numpy scipy matplotlib cvxpy"
-    $CONDA_PATH/bin/conda create -n "$CONDA_ENV" -y --override-channels --channel https://repo.anaconda.com/pkgs/main --channel https://repo.anaconda.com/pkgs/r python=3.9 numpy scipy matplotlib cvxpy 2>&1 | tee -a "$LOG_FILE"
-    if [ $? -ne 0 ]; then
-        log "ERROR: Failed to create Conda environment $CONDA_ENV"
-        log "Please check the conda output above for details"
+# Check if the Conda environment exists (by name or by path)
+conda_env_exists() {
+    if [[ "$CONDA_ENV" == /* ]]; then
+        [ -f "$CONDA_ENV/bin/python" ]
+    else
+        $CONDA_PATH/bin/conda env list | grep -q "^$CONDA_ENV "
+    fi
+}
+
+if ! conda_env_exists; then
+    if [ "${CREATE_CONDA_ENV:-0}" = "1" ]; then
+        log "Conda environment $CONDA_ENV not found. Creating it (CREATE_CONDA_ENV=1)..."
+        log "Accepting Conda Terms of Service..."
+        $CONDA_PATH/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>&1 | tee -a "$LOG_FILE"
+        $CONDA_PATH/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>&1 | tee -a "$LOG_FILE"
+        if [[ "$CONDA_ENV" == /* ]]; then
+            log "Running: conda create --prefix $CONDA_ENV ... (this can take 20+ minutes)"
+            mkdir -p "$(dirname "$CONDA_ENV")"
+            $CONDA_PATH/bin/conda create --prefix "$CONDA_ENV" -y --override-channels --channel https://repo.anaconda.com/pkgs/main --channel https://repo.anaconda.com/pkgs/r python=3.9 numpy scipy matplotlib cvxpy 2>&1 | tee -a "$LOG_FILE"
+        else
+            log "Running: conda create -n $CONDA_ENV ... (this can take 20+ minutes)"
+            $CONDA_PATH/bin/conda create -n "$CONDA_ENV" -y --override-channels --channel https://repo.anaconda.com/pkgs/main --channel https://repo.anaconda.com/pkgs/r python=3.9 numpy scipy matplotlib cvxpy 2>&1 | tee -a "$LOG_FILE"
+        fi
+        if [ $? -ne 0 ]; then
+            log "ERROR: Failed to create Conda environment $CONDA_ENV"
+            exit 1
+        fi
+    else
+        log "ERROR: Conda environment '$CONDA_ENV' not found."
+        log "Create it once (e.g. in an interactive session on SCRATCH to avoid disk quota), then re-submit:"
+        if [[ "$CONDA_ENV" == /* ]]; then
+            log "  conda create --prefix $CONDA_ENV -y python=3.9 numpy scipy matplotlib cvxpy"
+        else
+            log "  conda create -n $CONDA_ENV -y python=3.9 numpy scipy matplotlib cvxpy"
+        fi
+        log "Or set CREATE_CONDA_ENV=1 when submitting to create it in this job (slow, may hit time limits)."
         exit 1
     fi
 fi
