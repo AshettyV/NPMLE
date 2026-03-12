@@ -1,9 +1,7 @@
-# NPMLE
-Code for Heteroskedastic Estimation using NPMLE
+## Code for Heteroskedastic Estimation using NPMLE
 
-To run all experiments, use the Jupyter notebook NPMLE_py_test.ipynb. Each experiment is listed individually to see one individual output of our method.
+To run all experiments, please use the Jupyter notebook `NPMLE_py_test.ipynb` and to look at the implementation of the Frank-Wolfe algorithm, look at the file `npmle_tests_parallel.py`. Each experimental case (subset-of-signals, two-point prior, three-point prior, identical variance, quadratic variance) is listed individually to see one output of our method. All experimental simulation results in `NPMLE_py_tests.ipynb` are saved to the folder `~/NPMLE/results`. All experiments were run in parallel on NYU Torch HPC on 128 CPUs. 
 
-Implmentation code and code for the experiment itself can be found in npmle_tests_parallel.py. 
+### Adjusting current parameters
 
-**To adjust current parameters**:
-Under the "DEFAULT CONFIGURATION" section are the global and case-specific experimental parameters under the get_default_config() method. Current configuration settings match the ones used in the paper. 
+To adjust current default parameters, go to the "DEFAULT CONFIGURATION" section in `npmle_tests_parallel.py`. Under the global and case-specific experimental parameters in the `get_default_config()` method, change any of the prior parameters. The current configuration in the file match the ones used in the final paper. 
