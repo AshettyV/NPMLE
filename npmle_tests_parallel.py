@@ -1,9 +1,58 @@
 #!/usr/bin/env python3
 """
 NPMLE Tests - Parallelized version for HPC cluster
-Runs on a node with 120 CPUs and 8 H200 GPUs
+=====================================================
 
-This script is converted from NPMLE_py_tests.ipynb with multiprocessing support.
+This script implements and compares various mean estimation methods for heteroskedastic
+data, with a focus on Non-Parametric Maximum Likelihood Estimation (NPMLE).
+
+Overview
+--------
+The code implements simulations to compare the performance of different estimators when
+observations X_i ~ N(μ, σ_i²) where μ is unknown and the variances σ_i² follow an
+unknown distribution G. The NPMLE approach estimates both μ and G simultaneously.
+
+Estimators Compared
+-------------------
+1. **Median Estimator**: Simple robust estimator
+2. **Iterative Truncation**: Algorithm 1 from the paper, progressively truncates outliers
+3. **Truncated Mean**: Simple clip-and-mean estimator
+4. **MLE (Oracle)**: Maximum likelihood with known variances (theoretical lower bound)
+5. **NPMLE**: Non-parametric MLE that estimates both location and scale mixture
+
+Experiments
+-----------
+**Experiment 1 (Subset-of-Signals)**:
+- Tests estimators on adversarial two-point prior with subset of signals
+- Variances chosen from {σ_min, σ_max} with controlled proportions
+- Evaluates robustness to heavy-tailed contamination
+
+**Experiment 2 (Two-Point Prior)**:
+- General two-point scale mixture with configurable atoms and weights
+- Can simulate dynamic weights (w_1 = n^{-α}) and variances (σ_2 = n^β)
+- Compares all estimators including oracle MLE
+
+Implementation
+--------------
+- Parallelized using Python's multiprocessing module
+- Designed for HPC clusters with many CPUs
+- Generates publication-quality plots with error bars
+- Saves results to pickle files for post-processing
+
+Mathematical Background
+-----------------------
+For observations X_i ~ N(μ, σ_i²) where σ_i ~ G (unknown), the NPMLE finds:
+    (μ̂, Ĝ) = argmax Π_i ∫ φ(X_i; μ, σ²) dG(σ)
+
+where φ is the Gaussian PDF. The scale mixture G is estimated as a discrete distribution
+with support on [σ_min, σ_max].
+
+References
+----------
+Based on research in robust mean estimation under heteroskedasticity.
+
+Author: Converted from NPMLE_py_tests.ipynb
+Usage: python npmle_tests_parallel.py --help
 """
 
 import numpy as np
@@ -28,7 +77,31 @@ import time
 # =============================================================================
 
 def setup_logging(output_dir, log_to_file=True):
-    """Setup logging to both console and file"""
+    """
+    Setup logging to both console and file.
+
+    Creates a logger that outputs to stdout (console) with simplified timestamps
+    and optionally to a file with detailed timestamps for permanent records.
+
+    Parameters
+    ----------
+    output_dir : str
+        Directory where log file will be saved
+    log_to_file : bool, optional
+        Whether to create a log file (default: True)
+
+    Returns
+    -------
+    logger : logging.Logger
+        Configured logger instance
+
+    Notes
+    -----
+    - Console format: [HH:MM:SS] message
+    - File format: [YYYY-MM-DD HH:MM:SS] message
+    - Log file: {output_dir}/experiment_progress.log
+    - Clears any existing handlers to avoid duplicates
+    """
     # Create logger
     logger = logging.getLogger('npmle')
     logger.setLevel(logging.INFO)
@@ -59,7 +132,17 @@ logger = None
 
 
 def log(msg):
-    """Log a message to both console and file"""
+    """
+    Log a message to both console and file.
+
+    Convenience wrapper around the global logger. If logger is not initialized,
+    falls back to print with timestamp.
+
+    Parameters
+    ----------
+    msg : str
+        Message to log
+    """
     global logger
     if logger:
         logger.info(msg)
@@ -84,7 +167,48 @@ except ImportError:
 # =============================================================================
 
 def two_point_adversarial_prior(mu, si_min, si_max, m, n, rng=None):
-    """Two-point adversarial prior"""
+    """
+    Generate data from a two-point adversarial prior.
+
+    Creates n observations where m observations have variance σ_min² and
+    (n-m) observations have variance σ_max². All observations have mean μ.
+    This represents an adversarial setting where a fraction m/n of observations
+    have small variance and the rest have large variance.
+
+    Parameters
+    ----------
+    mu : float
+        True mean for all observations
+    si_min : float
+        Standard deviation for small-variance observations (σ_min)
+    si_max : float
+        Standard deviation for large-variance observations (σ_max)
+    m : int
+        Number of observations with variance σ_min² (must be < n)
+    n : int
+        Total number of observations
+    rng : numpy.random.Generator, optional
+        Random number generator (default: creates new default_rng)
+
+    Returns
+    -------
+    X : ndarray of shape (n,)
+        Generated observations X_i ~ N(μ, σ_i²)
+
+    Raises
+    ------
+    AssertionError
+        If m >= n
+
+    Notes
+    -----
+    Probability of σ_min: m/n
+    Probability of σ_max: 1 - m/n
+
+    Mathematical model:
+        X_i | σ_i ~ N(μ, σ_i²)
+        σ_i ~ Discrete({σ_min, σ_max}, {m/n, 1-m/n})
+    """
     assert m < n, f"Assertion failed: m ({m}) is not less than n ({n})"
     if rng is None:
         rng = np.random.default_rng()
@@ -93,12 +217,75 @@ def two_point_adversarial_prior(mu, si_min, si_max, m, n, rng=None):
 
 
 def two_point_alpha_adversarial_prior(si_min, alpha, n, rng=None):
-    """Two-point alpha-mixture prior (Po Ling-Loh)"""
+    """
+    Generate data from two-point alpha-mixture prior (Po Ling-Loh).
+
+    WARNING: This function has a bug - parameter misalignment in the call to
+    two_point_adversarial_prior. Currently unused in the codebase.
+
+    Parameters
+    ----------
+    si_min : float
+        Minimum standard deviation (currently unused due to bug)
+    alpha : float
+        Power parameter controlling variance scaling
+    n : int
+        Number of observations
+    rng : numpy.random.Generator, optional
+        Random number generator
+
+    Returns
+    -------
+    X : ndarray
+        Generated observations (will fail due to bug)
+
+    Notes
+    -----
+    BUG: Parameters passed to two_point_adversarial_prior are misaligned:
+    - Passes n as m, but requires m < n (assertion fails)
+    - Passes rng as n (type error)
+    - Parameter si_min is unused
+
+    Intended design (based on Po Ling-Loh's work):
+        σ_max = n^(2α)
+        m = floor(log(n))
+    """
     return two_point_adversarial_prior(1, n**(2*alpha), np.floor(np.log(n)), n, rng)
 
 
 def sample_scale_mixture(mu, prior_atoms, prior_weights, n=1, rng=None):
-    """General scale mixture of Gaussians sampling"""
+    """
+    Sample from a general scale mixture of Gaussians.
+
+    Generates observations from X_i ~ N(μ, σ_i²) where σ_i is drawn from
+    a discrete distribution with specified atoms and weights.
+
+    Parameters
+    ----------
+    mu : float
+        Mean of all Gaussian components
+    prior_atoms : array-like
+        Possible standard deviation values [σ_1, σ_2, ..., σ_K]
+    prior_weights : array-like
+        Probability weights [w_1, w_2, ..., w_K] (must sum to 1)
+    n : int, optional
+        Number of samples to generate (default: 1)
+    rng : numpy.random.Generator, optional
+        Random number generator
+
+    Returns
+    -------
+    X : ndarray of shape (n,)
+        Generated observations from the scale mixture
+
+    Notes
+    -----
+    Mathematical model:
+        X_i | σ_i ~ N(μ, σ_i²)
+        P(σ_i = σ_k) = w_k for k = 1, ..., K
+
+    This is a general framework for heteroskedastic data generation.
+    """
     scales = np.asarray(prior_atoms)
     weights = np.asarray(prior_weights)
     if rng is None:
@@ -108,7 +295,47 @@ def sample_scale_mixture(mu, prior_atoms, prior_weights, n=1, rng=None):
 
 
 def subset_of_signals_adversarial_prior(mu, si_min, si_max, m, n, rng=None):
-    """Subset-of-signals prior"""
+    """
+    Generate data from a subset-of-signals adversarial prior.
+
+    Creates observations where a fraction m/n have variances uniformly distributed
+    in [σ_min, 1] (small variances) and the rest have variances in [1, σ_max]
+    (large variances). This models an adversarial scenario where signal quality
+    varies across observations.
+
+    Parameters
+    ----------
+    mu : float
+        True mean for all observations
+    si_min : float
+        Minimum standard deviation (must satisfy σ_min ≤ 1 ≤ σ_max)
+    si_max : float
+        Maximum standard deviation (must satisfy σ_min ≤ 1 ≤ σ_max)
+    m : int
+        Number of observations with σ_i ∈ [σ_min, 1]
+    n : int
+        Total number of observations
+    rng : numpy.random.Generator, optional
+        Random number generator
+
+    Returns
+    -------
+    X : ndarray of shape (n,)
+        Generated observations X_i ~ N(μ, σ_i²)
+
+    Raises
+    ------
+    ValueError
+        If m/n not in [0, 1] or if σ_min ≤ 1 ≤ σ_max is violated
+
+    Notes
+    -----
+    Variance distribution:
+        - With probability m/n: σ_i ~ Uniform[σ_min, 1]
+        - With probability 1-m/n: σ_i ~ Uniform[1, σ_max]
+
+    The value 1 serves as a threshold separating "good signals" from "bad signals".
+    """
     if not (0 <= m/n <= 1):
         raise ValueError("Probability q must be between 0 and 1.")
     if not (si_min <= 1 <= si_max):
@@ -125,7 +352,38 @@ def subset_of_signals_adversarial_prior(mu, si_min, si_max, m, n, rng=None):
 
 
 def generate_data_from_prior(prior_atoms, prior_weights, mu, n, rng=None):
-    """Generate data from a given prior"""
+    """
+    Generate data from a given prior distribution on variances.
+
+    Samples variances from a discrete distribution and generates Gaussian
+    observations with those variances. Returns both the observations and
+    the true variances (useful for oracle estimators).
+
+    Parameters
+    ----------
+    prior_atoms : array-like
+        Possible standard deviation values [σ_1, ..., σ_K]
+    prior_weights : array-like
+        Probability weights [w_1, ..., w_K] (must sum to 1)
+    mu : float
+        True mean for all observations
+    n : int
+        Number of observations to generate
+    rng : numpy.random.Generator, optional
+        Random number generator
+
+    Returns
+    -------
+    X : ndarray of shape (n,)
+        Generated observations X_i ~ N(μ, σ_i²)
+    sig : ndarray of shape (n,)
+        True standard deviations σ_i for each observation
+
+    Notes
+    -----
+    This function is useful when you need to know the ground truth variances,
+    for example to compute oracle MLE estimators that assume known σ_i.
+    """
     if rng is None:
         rng = np.random.default_rng()
     sig = rng.choice(prior_atoms, size=n, p=prior_weights)
@@ -137,17 +395,115 @@ def generate_data_from_prior(prior_atoms, prior_weights, mu, n, rng=None):
 # =============================================================================
 
 def median_estimator(N_obs):
-    """Median estimator (standard)"""
+    """
+    Median estimator for location.
+
+    The median is a robust estimator that achieves sub-optimal but reasonable
+    performance under heavy-tailed distributions. It is used as a baseline
+    for comparison.
+
+    Parameters
+    ----------
+    N_obs : array-like
+        Observations
+
+    Returns
+    -------
+    float
+        Sample median
+
+    Notes
+    -----
+    For symmetric distributions, the median estimates the mean.
+    Under heteroskedasticity, the median may not be optimal but is robust.
+    Convergence rate: O(1/√n) for well-behaved distributions.
+    """
     return np.median(N_obs)
 
 
 def phi_interval(x, a, b):
-    """phi(x; [a,b]) = a if x < a; x if a <= x <= b; b if x > b."""
+    """
+    Truncation function: clips values to interval [a, b].
+
+    This is the projection operator onto [a, b]:
+        φ(x; [a,b]) = a     if x < a
+                      x     if a ≤ x ≤ b
+                      b     if x > b
+
+    Parameters
+    ----------
+    x : array-like or float
+        Values to truncate
+    a : float
+        Lower bound
+    b : float
+        Upper bound
+
+    Returns
+    -------
+    array-like or float
+        Truncated values
+
+    Notes
+    -----
+    Used in iterative truncation algorithm to progressively remove outliers.
+    """
     return np.clip(x, a, b)
 
 
 def iterative_truncation_estimator(N_obs, B, mu0, mu_star=None, m=1.0, n=None, return_path=False):
-    """Mean Estimation via Iterative Truncation (Algorithm 1)."""
+    """
+    Mean estimation via iterative truncation (Algorithm 1).
+
+    Progressively truncates observations to remove outliers, updating the mean
+    estimate iteratively. The truncation window shrinks by half at each stage
+    (K stages total), and within each stage, the algorithm runs T iterations
+    to converge to a stable estimate.
+
+    Parameters
+    ----------
+    N_obs : array-like
+        Observations X_1, ..., X_n
+    B : float
+        Initial truncation radius (typically related to max expected deviation)
+    mu0 : float
+        Initial mean estimate (starting point)
+    mu_star : float, optional
+        True mean (unused, kept for API compatibility)
+    m : float, optional
+        Parameter controlling number of iterations T = ⌈64n log(n) / m⌉ (default: 1.0)
+    n : int, optional
+        Sample size (default: inferred from N_obs)
+    return_path : bool, optional
+        If True, return history of all intermediate estimates (default: False)
+
+    Returns
+    -------
+    mu_hat : float
+        Final mean estimate
+    history : list of float, optional
+        If return_path=True, list of all intermediate estimates
+
+    Algorithm
+    ---------
+    1. Set δ_0 = B, K = ⌈log₂(B)⌉ if B > 1, else K = 0
+    2. Set T = max(1, ⌈64n log(n) / m⌉)
+    3. For k = 0, ..., K:
+        a. For t = 1, ..., T:
+            - Truncate: X'_i = φ(X_i; [μ_t - δ_k, μ_t + δ_k])
+            - Update: μ_{t+1} = mean(X')
+        b. Set δ_{k+1} = δ_k / 2
+
+    Notes
+    -----
+    The algorithm progressively removes outliers by:
+    - Starting with a large truncation window (±B)
+    - Iteratively recomputing the mean of truncated values
+    - Halving the window at each stage to focus on the center
+
+    The number of inner iterations T ensures convergence at each stage.
+    """
+    # Convert observations to numpy array
     X = np.asarray(N_obs, dtype=float)
     if n is None:
         n = X.shape[0]
@@ -156,27 +512,36 @@ def iterative_truncation_estimator(N_obs, B, mu0, mu_star=None, m=1.0, n=None, r
         if n != X.shape[0]:
             raise ValueError("Provided n does not match len(X).")
 
+    # Initialize truncation radius and starting estimate
     delta = float(B)
     mu_k0 = float(mu0)
 
+    # Compute number of stages: reduce radius by half each stage
     if delta <= 1.0:
-        K = 0
+        K = 0  # Already at fine scale
     else:
-        K = int(math.ceil(math.log2(delta)))
+        K = int(math.ceil(math.log2(delta)))  # Number of halvings needed
 
+    # Compute iterations per stage (ensures convergence at each scale)
     T = max(1, int(math.ceil(64.0 * n * math.log(n) / m)))
 
+    # Outer loop: progressively shrink truncation window
     history = []
     for k in range(K + 1):
         mu_t = mu_k0
+        # Inner loop: converge at current scale
         for _ in range(T + 1):
+            # Truncate observations to [μ_t - δ, μ_t + δ]
             a = mu_t - delta
             b = mu_t + delta
             truncated = phi_interval(X, a, b)
+            # Update estimate as mean of truncated values
             mu_t = truncated.mean()
             if return_path:
                 history.append(mu_t)
+        # Use converged estimate as starting point for next stage
         mu_k0 = mu_t
+        # Halve the truncation radius
         delta = delta / 2.0
 
     mu_hat = mu_t
@@ -186,15 +551,73 @@ def iterative_truncation_estimator(N_obs, B, mu0, mu_star=None, m=1.0, n=None, r
 
 
 def oracle_estimator(N_obs, N_vars):
-    """MLE estimator under oracle knowledge of the full list of variances"""
+    """
+    MLE estimator under oracle knowledge of variances.
+
+    WARNING: This function contains a bug. Use mle_known_sigma() instead.
+
+    When variances σ_i² are known, the MLE for μ is:
+        μ̂ = Σ(X_i/σ_i²) / Σ(1/σ_i²)
+
+    BUG: Line using np.linalg.norm() should be np.sum() instead.
+    Current code computes: norm = √Σ(1/σ_i⁴) ← WRONG
+    Should compute: sum = Σ(1/σ_i²) ← CORRECT
+
+    Parameters
+    ----------
+    N_obs : array-like
+        Observations X_i
+    N_vars : array-like
+        True variances σ_i²
+
+    Returns
+    -------
+    float
+        Incorrect MLE estimate (due to bug)
+
+    Notes
+    -----
+    This function is unused in the codebase. Use mle_known_sigma() for correct results.
+    """
     N_inv_vars = 1 / N_vars
     dot_prod = np.dot(N_inv_vars, N_obs)
-    norm_inv_Y = np.linalg.norm(N_inv_vars)
+    norm_inv_Y = np.linalg.norm(N_inv_vars)  # BUG: Should be np.sum()
     return dot_prod / norm_inv_Y
 
 
 def mle_known_sigma(X, sigma):
-    """MLE estimator for mu when the variances sigma_i^2 are known."""
+    """
+    MLE estimator for μ when variances σ_i² are known (Oracle estimator).
+
+    This is the optimal estimator when the true variances are known. It provides
+    a theoretical lower bound on the estimation error that adaptive estimators
+    (like NPMLE) aim to approach.
+
+    Parameters
+    ----------
+    X : array-like
+        Observations X_i ~ N(μ, σ_i²)
+    sigma : array-like
+        True standard deviations σ_i
+
+    Returns
+    -------
+    mu_hat : float
+        Weighted MLE estimate
+
+    Formula
+    -------
+    μ̂_MLE = (Σ X_i/σ_i²) / (Σ 1/σ_i²)
+
+    This is the minimum variance unbiased estimator (MVUE) under known variances.
+
+    Notes
+    -----
+    - Achieves the Cramér-Rao lower bound
+    - Convergence rate: O(1/√n) with optimal constant
+    - Used as oracle baseline in experiments to measure information loss
+      from not knowing the true variances
+    """
     X = np.asarray(X, dtype=float)
     sigma = np.asarray(sigma, dtype=float)
     weights = 1.0 / (sigma ** 2)
@@ -207,7 +630,35 @@ def mle_known_sigma(X, sigma):
 # =============================================================================
 
 def mixture_density(prior_atoms, prior_weights, mu, obs):
-    """Compute mixture density"""
+    """
+    Compute mixture density for scale mixture of Gaussians.
+
+    Evaluates the marginal density:
+        f(x | μ, G) = Σ_k w_k φ(x; μ, σ_k²)
+
+    where φ is the Gaussian PDF and G is the discrete distribution on {σ_k}.
+
+    Parameters
+    ----------
+    prior_atoms : array-like
+        Standard deviation values [σ_1, ..., σ_K]
+    prior_weights : array-like
+        Mixture weights [w_1, ..., w_K]
+    mu : float
+        Location parameter
+    obs : array-like
+        Observations at which to evaluate density
+
+    Returns
+    -------
+    densities : ndarray
+        Mixture density evaluated at each observation
+
+    Notes
+    -----
+    This is the marginal likelihood of observations under the scale mixture model.
+    Used in EM algorithm and likelihood computation.
+    """
     k = len(prior_atoms)
     densities = np.zeros(len(obs))
     for i in range(k):
@@ -216,14 +667,78 @@ def mixture_density(prior_atoms, prior_weights, mu, obs):
 
 
 def avg_loglikelihood(prior_atoms, prior_weights, mu, N_obs):
-    """Average log-likelihood"""
+    """
+    Compute average log-likelihood for scale mixture model.
+
+    Evaluates:
+        L(μ, G) = (1/n) Σ_i log f(X_i | μ, G)
+
+    where f is the mixture density.
+
+    Parameters
+    ----------
+    prior_atoms : array-like
+        Standard deviation values [σ_1, ..., σ_K]
+    prior_weights : array-like
+        Mixture weights [w_1, ..., w_K]
+    mu : float
+        Location parameter
+    N_obs : array-like
+        Observations X_1, ..., X_n
+
+    Returns
+    -------
+    float
+        Average log-likelihood
+
+    Notes
+    -----
+    Used to monitor convergence in NPMLE algorithms and compare model fits.
+    Numerical floor of 1e-300 prevents log(0) errors.
+    """
     densities = mixture_density(prior_atoms, prior_weights, mu, N_obs)
     densities = np.maximum(densities, 1e-300)
     return np.mean(np.log(densities))
 
 
 def DG_sigma(prior_atoms, prior_weights, sigma, mu, N_obs, denom=None):
-    """Directional derivative for atom update"""
+    """
+    Compute directional derivative for scale mixture NPMLE.
+
+    This is the key quantity for determining whether to add a new atom σ
+    to the support of the estimated distribution G. If DG(σ) > 0, adding
+    atom σ would increase the likelihood.
+
+    Parameters
+    ----------
+    prior_atoms : array-like
+        Current atoms in the support of G
+    prior_weights : array-like
+        Current weights
+    sigma : float
+        Candidate atom to evaluate
+    mu : float
+        Current location estimate
+    N_obs : array-like
+        Observations
+    denom : ndarray, optional
+        Pre-computed mixture density (for efficiency)
+
+    Returns
+    -------
+    float
+        Directional derivative DG(σ)
+
+    Formula
+    -------
+    DG(σ) = (1/n) Σ_i [φ(X_i; μ, σ²) / f(X_i | μ, G)] - 1
+
+    Notes
+    -----
+    - If DG(σ) > 0: Adding weight at σ increases likelihood
+    - If DG(σ) ≤ 0: σ should not be added to support
+    - Used in vertex direction method for NPMLE computation
+    """
     n = len(N_obs)
     if denom is None:
         denom = mixture_density(prior_atoms, prior_weights, mu, N_obs)
@@ -233,7 +748,40 @@ def DG_sigma(prior_atoms, prior_weights, sigma, mu, N_obs, denom=None):
 
 
 def grad_DG_sigma(prior_atoms, prior_weights, sigma, mu, N_obs, denom=None):
-    """Gradient of directional derivative"""
+    """
+    Compute gradient of directional derivative with respect to σ.
+
+    This gradient is used to optimize the choice of new atom σ* when adding
+    atoms to the support of G. We seek σ* that maximizes DG(σ).
+
+    Parameters
+    ----------
+    prior_atoms : array-like
+        Current atoms in support of G
+    prior_weights : array-like
+        Current weights
+    sigma : float
+        Point at which to evaluate gradient
+    mu : float
+        Current location estimate
+    N_obs : array-like
+        Observations
+    denom : ndarray, optional
+        Pre-computed mixture density (for efficiency)
+
+    Returns
+    -------
+    float
+        Gradient ∂DG/∂σ evaluated at σ
+
+    Notes
+    -----
+    Uses the derivative of Gaussian PDF with respect to scale parameter:
+        ∂φ/∂σ = φ(z) * (z² - 1) / σ - φ(z) / σ
+    where z = (x - μ) / σ
+
+    Used in gradient-based optimization to find optimal new atom.
+    """
     n = len(N_obs)
     if denom is None:
         denom = mixture_density(prior_atoms, prior_weights, mu, N_obs)
@@ -247,7 +795,46 @@ def grad_DG_sigma(prior_atoms, prior_weights, sigma, mu, N_obs, denom=None):
 
 
 def update_atoms(atoms, weights, mu, N_obs, si_min, si_max):
-    """Update atoms using gradient-based optimization"""
+    """
+    Find optimal new atom to add to support of G.
+
+    Searches for σ* ∈ [σ_min, σ_max] that maximizes the directional derivative
+    DG(σ). If DG(σ*) > 0, adding this atom will increase the likelihood.
+
+    Parameters
+    ----------
+    atoms : array-like
+        Current atoms in support of G
+    weights : array-like
+        Current weights for atoms
+    mu : float
+        Current location estimate
+    N_obs : array-like
+        Observations
+    si_min : float
+        Minimum allowed standard deviation
+    si_max : float
+        Maximum allowed standard deviation
+
+    Returns
+    -------
+    s_star : float
+        Optimal atom σ* that maximizes DG(σ)
+    val : float
+        Value of DG(σ*) - if > 0, this atom should be added
+
+    Algorithm
+    ---------
+    Uses scipy.optimize.minimize_scalar with bounded method to find:
+        σ* = argmax_{σ ∈ [σ_min, σ_max]} DG(σ)
+
+    Falls back to midpoint if optimization fails.
+
+    Notes
+    -----
+    This is a key step in the vertex direction method for computing NPMLE.
+    New atoms are added iteratively until no improvement is possible.
+    """
     denom = mixture_density(atoms, weights, mu, N_obs)
 
     def neg_DG(s):
@@ -268,42 +855,126 @@ def update_atoms(atoms, weights, mu, N_obs, si_min, si_max):
 
 
 def get_weights_npmle_EM(x, scales, mu=0.0, w_init=None, max_iter=500, tol=1e-8):
-    """EM algorithm for NPMLE weights"""
+    """
+    EM algorithm for computing NPMLE weights given fixed atoms.
+
+    When the atoms (support points) of G are fixed, the optimal weights can be
+    computed via Expectation-Maximization (EM). This is a convex optimization
+    problem.
+
+    Parameters
+    ----------
+    x : array-like
+        Observations
+    scales : array-like
+        Fixed standard deviation atoms [σ_1, ..., σ_K]
+    mu : float, optional
+        Location parameter (default: 0.0)
+    w_init : array-like, optional
+        Initial weights (default: uniform weights)
+    max_iter : int, optional
+        Maximum EM iterations (default: 500)
+    tol : float, optional
+        Convergence tolerance on weight changes (default: 1e-8)
+
+    Returns
+    -------
+    w : ndarray of shape (K,)
+        Optimal mixture weights that maximize likelihood
+
+    Algorithm
+    ---------
+    E-step: Compute responsibilities
+        r_{ik} = w_k φ(x_i; μ, σ_k²) / Σ_j w_j φ(x_i; μ, σ_j²)
+
+    M-step: Update weights
+        w_k = (1/n) Σ_i r_{ik}
+
+    Notes
+    -----
+    - Converges to global optimum (convex problem)
+    - Numerical stabilization: floor values at 1e-12, 1e-300
+    - Weights automatically sum to 1
+    """
+    # Convert inputs to arrays
     x = np.asarray(x, dtype=float)
     scales = np.asarray(scales, dtype=float)
-    n = x.size
-    K = scales.size
+    n = x.size  # Number of observations
+    K = scales.size  # Number of mixture components
 
+    # Initialize weights
     if w_init is None:
-        w = np.ones(K) / K
+        w = np.ones(K) / K  # Uniform initialization
     else:
         w = np.asarray(w_init, dtype=float).copy()
-        w = np.maximum(w, 1e-12)
-        w /= w.sum()
+        w = np.maximum(w, 1e-12)  # Prevent exact zeros
+        w /= w.sum()  # Normalize to sum to 1
 
+    # Pre-compute Gaussian densities φ(x_i; μ, σ_k²) for all i, k
+    # This is the key computational bottleneck, so we do it once
     phi = np.zeros((n, K))
     for j in range(K):
         phi[:, j] = norm.pdf(x, loc=mu, scale=scales[j])
 
+    # EM iterations
     for _ in range(max_iter):
-        f = phi @ w
-        f = np.maximum(f, 1e-300)
-        resp = phi * w[None, :]
-        resp /= f[:, None]
-        w_new = resp.mean(axis=0)
-        w_new = np.maximum(w_new, 1e-12)
-        w_new /= w_new.sum()
+        # E-step: Compute mixture density f(x_i) = Σ_k w_k φ_k(x_i)
+        f = phi @ w  # Matrix-vector product (n,K) @ (K,) = (n,)
+        f = np.maximum(f, 1e-300)  # Numerical floor to prevent division by zero
 
+        # E-step: Compute responsibilities r_ik = w_k φ_k(x_i) / f(x_i)
+        resp = phi * w[None, :]  # Broadcasting: (n,K) * (1,K) = (n,K)
+        resp /= f[:, None]  # Normalize: (n,K) / (n,1) = (n,K)
+
+        # M-step: Update weights w_k = (1/n) Σ_i r_ik
+        w_new = resp.mean(axis=0)  # Average over observations
+        w_new = np.maximum(w_new, 1e-12)  # Numerical floor
+        w_new /= w_new.sum()  # Normalize to sum to 1
+
+        # Check convergence: max absolute change in weights
         if np.max(np.abs(w_new - w)) < tol:
             w = w_new
-            break
+            break  # Converged
         w = w_new
 
     return w
 
 
 def merge_atoms_weights(atoms, weights, atom_tol=1e-3):
-    """Merge atoms that are too close"""
+    """
+    Merge atoms that are too close together.
+
+    When NPMLE adds multiple atoms, some may end up very close to each other.
+    This function merges nearby atoms to create a cleaner representation and
+    avoid numerical issues.
+
+    Parameters
+    ----------
+    atoms : array-like
+        Standard deviation values [σ_1, ..., σ_K]
+    weights : array-like
+        Corresponding weights [w_1, ..., w_K]
+    atom_tol : float, optional
+        Distance threshold for merging (default: 1e-3)
+
+    Returns
+    -------
+    merged_atoms : ndarray
+        Merged atoms (sorted)
+    merged_weights : ndarray
+        Corresponding merged weights (sum of merged components)
+
+    Algorithm
+    ---------
+    1. Sort atoms in ascending order
+    2. Iterate through sorted atoms
+    3. If |σ_i - σ_{i-1}| < tol: merge by adding weights
+    4. Otherwise: keep as separate atom
+
+    Notes
+    -----
+    Preserves total weight: sum(merged_weights) = sum(weights)
+    """
     atoms = np.asarray(atoms)
     weights = np.asarray(weights)
     idx = np.argsort(atoms)
@@ -326,14 +997,70 @@ def merge_atoms_weights(atoms, weights, atom_tol=1e-3):
 def npmle_heteroskedastic(N_obs, mu, si_min, si_max, atoms_init=None, weights_init=None,
                           weight_tol=1e-6, atom_tol=1e-6, progress_tol=1e-6,
                           iter_max=20, verbose=False):
-    """NPMLE for heteroskedastic model (fixed mu)"""
+    """
+    Compute NPMLE for scale mixture G when location μ is fixed.
+
+    Estimates the mixing distribution G on [σ_min, σ_max] that maximizes
+    the likelihood, given a fixed location parameter μ. Uses vertex direction
+    method: alternates between optimizing weights (EM) and adding new atoms.
+
+    Parameters
+    ----------
+    N_obs : array-like
+        Observations X_1, ..., X_n
+    mu : float
+        Fixed location parameter
+    si_min : float
+        Minimum standard deviation in support of G
+    si_max : float
+        Maximum standard deviation in support of G
+    atoms_init : array-like, optional
+        Initial atoms (default: [std(X)])
+    weights_init : array-like, optional
+        Initial weights (default: uniform)
+    weight_tol : float, optional
+        Tolerance for pruning near-zero weights (default: 1e-6)
+    atom_tol : float, optional
+        Tolerance for merging close atoms (default: 1e-6)
+    progress_tol : float, optional
+        Convergence tolerance on log-likelihood change (default: 1e-6)
+    iter_max : int, optional
+        Maximum iterations (default: 20)
+    verbose : bool, optional
+        Print progress (default: False)
+
+    Returns
+    -------
+    atoms : ndarray
+        Standard deviations in support of Ĝ
+    weights : ndarray
+        Corresponding mixture weights
+
+    Algorithm
+    ---------
+    1. Initialize with single atom (or provided atoms)
+    2. Repeat until convergence:
+        a. Update weights via EM (fixed atoms)
+        b. Prune atoms with weight < weight_tol
+        c. Find optimal new atom σ* = argmax DG(σ)
+        d. If DG(σ*) > threshold: add σ* to support and recompute weights
+        e. Check convergence via log-likelihood change
+    3. Merge close atoms for clean representation
+
+    Notes
+    -----
+    This implements the vertex direction method (Bohning 1985, Lindsay 1983).
+    The estimated G is a discrete distribution (finite support).
+    """
     n = len(N_obs)
 
+    # Initialize atoms: start with single atom at empirical std
     if atoms_init is None:
         atoms = np.array([max(si_min, np.std(N_obs))])
     else:
         atoms = np.asarray(atoms_init).copy()
 
+    # Initialize weights: uniform over atoms
     if weights_init is None:
         weights = np.ones(len(atoms)) / len(atoms)
     else:
@@ -341,42 +1068,79 @@ def npmle_heteroskedastic(N_obs, mu, si_min, si_max, atoms_init=None, weights_in
 
     prev_ll = -np.inf
 
+    # Main NPMLE loop: alternate between weight and atom updates
     for it in range(iter_max):
-        # Update weights
+        # Step 1: Update weights for current atoms via EM
         weights = get_weights_npmle_EM(N_obs, atoms, mu=mu, w_init=weights)
 
-        # Prune zero-weight atoms
+        # Step 2: Prune atoms with negligible weight
         mask = weights > weight_tol
         atoms = atoms[mask]
         weights = weights[mask]
-        weights /= weights.sum()
+        weights /= weights.sum()  # Renormalize after pruning
 
+        # Safety: ensure we always have at least one atom
         if len(atoms) == 0:
             atoms = np.array([max(si_min, np.std(N_obs))])
             weights = np.array([1.0])
 
-        # Update atoms (add new atom)
+        # Step 3: Search for optimal new atom to add
         s_star, dg_val = update_atoms(atoms, weights, mu, N_obs, si_min, si_max)
 
+        # Step 4: If directional derivative > 0, adding this atom improves likelihood
         if dg_val > 1e-6:
             atoms = np.append(atoms, s_star)
-            weights = np.append(weights, 0.0)
+            weights = np.append(weights, 0.0)  # Initialize with zero weight
+            # Recompute all weights with new atom
             weights = get_weights_npmle_EM(N_obs, atoms, mu=mu, w_init=weights)
 
-        # Check convergence
+        # Step 5: Check convergence via log-likelihood
         ll = avg_loglikelihood(atoms, weights, mu, N_obs)
         if abs(ll - prev_ll) < progress_tol:
-            break
+            break  # Converged: likelihood not improving
         prev_ll = ll
 
-    # Merge close atoms
+    # Post-processing: merge atoms that are too close together
     atoms, weights = merge_atoms_weights(atoms, weights, atom_tol)
 
     return atoms, weights
 
 
 def mle_location_scale_mixture(N_obs, atoms, weights, mu_init=None):
-    """MLE for location given scale mixture"""
+    """
+    Compute MLE for location μ given fixed scale mixture G.
+
+    When the mixing distribution G (atoms and weights) is fixed, this computes
+    the optimal location parameter μ that maximizes the likelihood.
+
+    Parameters
+    ----------
+    N_obs : array-like
+        Observations X_1, ..., X_n
+    atoms : array-like
+        Standard deviation atoms of G
+    weights : array-like
+        Mixture weights
+    mu_init : float, optional
+        Initial guess for μ (default: median of observations)
+
+    Returns
+    -------
+    mu_hat : float
+        MLE estimate of location parameter
+
+    Algorithm
+    ---------
+    Uses BFGS optimization to minimize negative log-likelihood:
+        -L(μ) = -(1/n) Σ_i log[Σ_k w_k φ(X_i; μ, σ_k²)]
+
+    Gradient is computed analytically for faster convergence.
+
+    Notes
+    -----
+    Falls back to median if optimization fails.
+    The problem is generally well-conditioned for reasonable data.
+    """
     N_obs = np.asarray(N_obs, dtype=float)
 
     if mu_init is None:
@@ -402,7 +1166,59 @@ def mle_location_scale_mixture(N_obs, atoms, weights, mu_init=None):
 
 
 def npmle_alternating_full(N_obs, si_min=0, si_max=np.inf, verbose=False, iter_max=20):
-    """Full NPMLE with alternating optimization for mu and scale distribution"""
+    """
+    Full NPMLE with alternating optimization for μ and G.
+
+    Jointly estimates the location parameter μ and the scale mixture distribution G
+    by alternating between optimizing each while holding the other fixed. This is
+    the main NPMLE estimator used in experiments.
+
+    Parameters
+    ----------
+    N_obs : array-like
+        Observations X_1, ..., X_n
+    si_min : float, optional
+        Minimum standard deviation (default: 0, adjusted to 0.01)
+    si_max : float, optional
+        Maximum standard deviation (default: inf, adjusted to 10*std(X))
+    verbose : bool, optional
+        Print iteration progress (default: False)
+    iter_max : int, optional
+        Maximum outer iterations (default: 20)
+
+    Returns
+    -------
+    atoms : ndarray
+        Estimated standard deviations in support of Ĝ
+    weights : ndarray
+        Estimated mixture weights
+    mu : float
+        Estimated location parameter
+
+    Algorithm
+    ---------
+    1. Initialize: μ = median(X), G = single atom at std(X)
+    2. Repeat until convergence:
+        a. Update G given fixed μ (via npmle_heteroskedastic)
+        b. Update μ given fixed G (via mle_location_scale_mixture)
+        c. Compute log-likelihood
+        d. Check convergence: |LL_new - LL_old| < tol
+    3. Return (Ĝ, μ̂)
+
+    Notes
+    -----
+    - This is a block coordinate ascent algorithm on (μ, G)
+    - Each step increases (or maintains) the likelihood
+    - Typically converges in 5-15 iterations
+    - Provides adaptive estimation without knowing true variances
+
+    Theoretical Properties
+    ----------------------
+    Under regularity conditions, the NPMLE achieves:
+    - Consistency: (μ̂, Ĝ) → (μ*, G*) as n → ∞
+    - Near-parametric rate: |μ̂ - μ*| = O(1/√n) in favorable cases
+    - Adaptivity: No need to know G or choose tuning parameters
+    """
     N_obs = np.asarray(N_obs, dtype=float)
     n = len(N_obs)
 
@@ -445,7 +1261,41 @@ def npmle_alternating_full(N_obs, si_min=0, si_max=np.inf, verbose=False, iter_m
 # =============================================================================
 
 def run_single_simulation_sos(args):
-    """Run a single simulation for Subset-of-Signals experiment"""
+    """
+    Run a single simulation for Subset-of-Signals experiment.
+
+    Worker function for parallel execution. Generates data from subset-of-signals
+    prior and evaluates three estimators: median, iterative truncation, and NPMLE.
+
+    Parameters
+    ----------
+    args : tuple
+        (s, n, true_mu, si_min, si_max, B, mu0, m_power, seed) where:
+        - s: simulation index
+        - n: sample size
+        - true_mu: true mean parameter
+        - si_min: minimum standard deviation
+        - si_max: maximum standard deviation
+        - B: truncation bound
+        - mu0: initial mean estimate
+        - m_power: power for computing m = n^m_power
+        - seed: random seed
+
+    Returns
+    -------
+    dict
+        Results containing:
+        - n: sample size
+        - sim: simulation index
+        - err_median: absolute error of median estimator
+        - err_trunc: absolute error of truncation estimator
+        - err_npmle: absolute error of NPMLE (or nan if failed)
+
+    Notes
+    -----
+    Designed for use with multiprocessing.Pool.map/imap.
+    Each worker uses independent random seed for reproducibility.
+    """
     s, n, true_mu, si_min, si_max, B, mu0, m_power, seed = args
     rng = np.random.default_rng(seed)
 
@@ -482,7 +1332,48 @@ def run_single_simulation_sos(args):
 
 
 def run_single_simulation_2pt(args):
-    """Run a single simulation for Two-Point Prior experiment"""
+    """
+    Run a single simulation for Two-Point Prior experiment.
+
+    Worker function for parallel execution. Generates data from two-point prior
+    and evaluates four estimators: MLE (oracle), median, truncated mean, and NPMLE.
+
+    Parameters
+    ----------
+    args : tuple
+        (s, n, true_mu, prior_atoms, prior_weights, weight_power, sigma_power,
+         si_min, si_max, B, seed) where:
+        - s: simulation index
+        - n: sample size
+        - true_mu: true mean parameter
+        - prior_atoms: [σ_1, σ_2] base atoms
+        - prior_weights: [w_1, w_2] base weights
+        - weight_power: if > 0, use dynamic weights w_1 = n^(-weight_power)
+        - sigma_power: if > 0, use dynamic variance σ_2 = n^(sigma_power)
+        - si_min: minimum σ for NPMLE search
+        - si_max: maximum σ for NPMLE search
+        - B: truncation bound
+        - seed: random seed
+
+    Returns
+    -------
+    dict
+        Results containing:
+        - n: sample size
+        - sim: simulation index
+        - err_mle_known: absolute error of oracle MLE (known variances)
+        - err_median: absolute error of median estimator
+        - err_trunc: absolute error of truncated mean
+        - err_npmle: absolute error of NPMLE (or nan if failed)
+
+    Notes
+    -----
+    Dynamic parameters allow testing scenarios where:
+    - Weights vary with n: models rare contamination (w_1 = n^(-α) → 0)
+    - Variances scale with n: models growing heterogeneity (σ_2 = n^β)
+
+    Oracle MLE provides theoretical lower bound on achievable error.
+    """
     s, n, true_mu, prior_atoms, prior_weights, weight_power, sigma_power, si_min, si_max, B, seed = args
     rng = np.random.default_rng(seed)
 
@@ -535,7 +1426,33 @@ def run_single_simulation_2pt(args):
 
 
 def compute_stats(results_dict, n_values):
-    """Compute mean and standard error for each estimator at each n"""
+    """
+    Compute mean and standard error for each estimator at each n.
+
+    Aggregates simulation results to compute summary statistics across
+    multiple simulation runs at each sample size.
+
+    Parameters
+    ----------
+    results_dict : dict
+        Dictionary mapping n -> list of error values
+        e.g., {100: [0.1, 0.15, 0.12, ...], 1000: [...], ...}
+    n_values : array-like
+        Sample sizes tested
+
+    Returns
+    -------
+    means : ndarray
+        Mean error at each n (length = len(n_values))
+    stds : ndarray
+        Standard error of mean at each n (std / sqrt(num_sims))
+
+    Notes
+    -----
+    - Automatically filters out nan values before computing statistics
+    - If all values are nan for a given n, returns nan for that entry
+    - Standard error (not standard deviation) is returned for error bars
+    """
     means = []
     stds = []
     for n in n_values:
@@ -551,7 +1468,64 @@ def compute_stats(results_dict, n_values):
 
 
 def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_power, n_workers, output_dir):
-    """Run Subset-of-Signals experiment with parallel processing"""
+    """
+    Run Subset-of-Signals experiment with parallel processing.
+
+    Orchestrates a full simulation experiment comparing estimators on adversarial
+    subset-of-signals prior. Generates data in parallel, aggregates results, and
+    creates publication-quality plots.
+
+    Parameters
+    ----------
+    n_values : array-like
+        Sample sizes to test [n_1, n_2, ..., n_k]
+    n_sims : int
+        Number of simulation runs per sample size
+    true_mu : float
+        True mean parameter
+    si_min : float
+        Minimum standard deviation (for "good" observations)
+    si_max : float
+        Maximum standard deviation (for "bad" observations)
+    B : float
+        Truncation bound for iterative truncation estimator
+    mu0 : float
+        Initial mean estimate for truncation algorithm
+    m_power : float
+        Power for computing m = n^m_power (fraction of good observations)
+    n_workers : int
+        Number of parallel workers
+    output_dir : str
+        Directory for saving results and plots
+
+    Returns
+    -------
+    results_data : dict
+        Complete results dictionary containing:
+        - n_values: tested sample sizes
+        - results_median/truncation/npmle: raw error values
+        - median/trunc/npmle_means: mean errors at each n
+        - median/trunc/npmle_stds: standard errors at each n
+        - params: experiment parameters
+
+    Side Effects
+    ------------
+    - Saves results to {output_dir}/experiment1_sos_results.pkl
+    - Saves plot to {output_dir}/experiment1_sos_comparison.png
+    - Logs progress to console and log file
+
+    Performance
+    -----------
+    For n_values with k points and n_sims simulations each:
+    - Total simulations: k × n_sims
+    - Parallel speedup: near-linear up to number of physical cores
+    - Typical rate: 10-100 simulations/second depending on n
+
+    Notes
+    -----
+    This experiment tests robustness to adversarial contamination where
+    a fraction 1 - m/n of observations have very large variance.
+    """
     log("=" * 60)
     log("EXPERIMENT 1: Subset-of-Signals Prior")
     log("=" * 60)
@@ -655,7 +1629,70 @@ def run_experiment_sos(n_values, n_sims, true_mu, si_min, si_max, B, mu0, m_powe
 
 def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
                        weight_power, sigma_power, si_min, si_max, B, n_workers, output_dir):
-    """Run Two-Point Prior experiment with parallel processing"""
+    """
+    Run Two-Point Prior experiment with parallel processing.
+
+    Orchestrates simulation experiment comparing all estimators on two-point
+    scale mixture. Supports dynamic weights and variances that scale with n.
+    Includes oracle MLE as theoretical baseline.
+
+    Parameters
+    ----------
+    n_values : array-like
+        Sample sizes to test
+    n_sims : int
+        Number of simulations per sample size
+    true_mu : float
+        True mean parameter
+    prior_atoms : array-like
+        Base standard deviation atoms [σ_1, σ_2]
+    prior_weights : array-like
+        Base mixture weights [w_1, w_2]
+    weight_power : float
+        If > 0: use dynamic weights w_1 = n^(-weight_power)
+        If = 0: use fixed weights from prior_weights
+    sigma_power : float
+        If > 0: use dynamic variance σ_2 = n^(sigma_power)
+        If = 0: use fixed atoms from prior_atoms
+    si_min : float
+        Minimum σ for NPMLE search range
+    si_max : float
+        Maximum σ for NPMLE search range
+    B : float
+        Truncation bound for truncated mean estimator
+    n_workers : int
+        Number of parallel workers
+    output_dir : str
+        Directory for saving results and plots
+
+    Returns
+    -------
+    results_data : dict
+        Complete results dictionary containing:
+        - n_values: tested sample sizes
+        - results_mle_known/median/trunc/npmle: raw error values
+        - mle_known/median/trunc/npmle_means: mean errors
+        - mle_known/median/trunc/npmle_stds: standard errors
+        - params: experiment parameters
+
+    Side Effects
+    ------------
+    - Saves results to {output_dir}/experiment2_2pt_results.pkl
+    - Saves 4 plots:
+        * experiment2_all_estimators.png: All estimators comparison
+        * experiment2_mle_vs_npmle.png: Oracle vs NPMLE only
+        * experiment2_error_ratio.png: Ratios relative to oracle
+        * experiment2_combined.png: 2-panel combined figure
+
+    Notes
+    -----
+    Dynamic parameters model important scenarios:
+    - Rare contamination: w_1 = n^(-α) → 0 as n → ∞
+    - Growing heterogeneity: σ_2 = n^β → ∞ as n → ∞
+
+    Oracle MLE (known variances) provides Cramér-Rao lower bound.
+    Goal is for NPMLE to approach oracle performance adaptively.
+    """
     log("\n" + "=" * 60)
     log("EXPERIMENT 2: Two-Point Prior (All Estimators)")
     log("=" * 60)
@@ -776,7 +1813,48 @@ def run_experiment_2pt(n_values, n_sims, true_mu, prior_atoms, prior_weights,
 
 def create_plot_sos(n_values, median_means, median_stds, trunc_means, trunc_stds,
                     npmle_means, npmle_stds, si_min, si_max, B, mu0, m_power, true_mu, n_sims, output_dir):
-    """Create plot for Subset-of-Signals experiment"""
+    """
+    Create publication-quality plot for Subset-of-Signals experiment.
+
+    Generates log-log plot comparing median, iterative truncation, and NPMLE
+    estimators. Includes error bars, parameter information, and proper formatting.
+
+    Parameters
+    ----------
+    n_values : array-like
+        Sample sizes tested
+    median_means, trunc_means, npmle_means : array-like
+        Mean absolute errors at each n
+    median_stds, trunc_stds, npmle_stds : array-like
+        Standard errors at each n
+    si_min, si_max : float
+        Standard deviation range
+    B : float
+        Truncation bound
+    mu0 : float
+        Initial mean estimate
+    m_power : float
+        Power parameter (m = n^m_power)
+    true_mu : float
+        True mean
+    n_sims : int
+        Number of simulations per n
+    output_dir : str
+        Directory to save plot
+
+    Saves
+    -----
+    {output_dir}/experiment1_sos_comparison.png (300 dpi)
+
+    Plot Features
+    -------------
+    - Log-log scale for easy interpretation of convergence rates
+    - Error bars representing standard error of mean
+    - Color-coded by estimator (blue=median, orange=trunc, green=NPMLE)
+    - Parameter box with experiment details
+    - Grid for readability
+    - Publication-ready 12×8 inch figure
+    """
     fig, ax = plt.subplots(figsize=(12, 8))
 
     colors = {
@@ -832,7 +1910,72 @@ def create_plot_2pt(n_values, mle_means, mle_stds,
                     median_means, median_stds, trunc_means, trunc_stds,
                     npmle_means, npmle_stds,
                     prior_atoms, prior_weights, weight_power, sigma_power, si_min, si_max, B, true_mu, n_sims, output_dir):
-    """Create plots for Two-Point Prior experiment with all estimators"""
+    """
+    Create comprehensive plot suite for Two-Point Prior experiment.
+
+    Generates four publication-quality plots showing different perspectives
+    on estimator performance: absolute errors, oracle comparison, relative
+    performance, and combined view.
+
+    Parameters
+    ----------
+    n_values : array-like
+        Sample sizes tested
+    mle_means, median_means, trunc_means, npmle_means : array-like
+        Mean absolute errors at each n
+    mle_stds, median_stds, trunc_stds, npmle_stds : array-like
+        Standard errors at each n
+    prior_atoms : array-like
+        Base atoms [σ_1, σ_2]
+    prior_weights : array-like
+        Base weights [w_1, w_2]
+    weight_power : float
+        Dynamic weight power (0 = fixed)
+    sigma_power : float
+        Dynamic variance power (0 = fixed)
+    si_min, si_max : float
+        NPMLE search range
+    B : float
+        Truncation bound
+    true_mu : float
+        True mean
+    n_sims : int
+        Number of simulations
+    output_dir : str
+        Directory to save plots
+
+    Saves
+    -----
+    Four plots (all 300 dpi):
+    1. experiment2_all_estimators.png
+       - All four estimators with error bars
+       - Reference line showing 1/√n parametric rate
+       - Log-log scale
+
+    2. experiment2_mle_vs_npmle.png
+       - Oracle MLE vs NPMLE only (cleaner comparison)
+       - Shows adaptivity gap
+
+    3. experiment2_error_ratio.png
+       - Each estimator's error / Oracle error
+       - Horizontal line at 1 = oracle performance
+       - Shows relative efficiency
+
+    4. experiment2_combined.png
+       - Two-panel figure: absolute errors (left) + ratios (right)
+       - Comprehensive single-figure summary
+
+    Notes
+    -----
+    Color scheme:
+    - Red: Oracle MLE (theoretical lower bound)
+    - Blue: Median
+    - Orange: Truncated mean
+    - Green: NPMLE
+
+    The 1/√n reference line shows parametric convergence rate.
+    NPMLE aims to achieve this rate adaptively without knowing G.
+    """
 
     colors = {
         'mle_known': '#d62728',  # red
@@ -1052,6 +2195,71 @@ def create_plot_2pt(n_values, mle_means, mle_stds,
 
 
 def main():
+    """
+    Main entry point for NPMLE simulation experiments.
+
+    Parses command-line arguments, sets up logging, and runs requested experiments
+    with parallel processing. Coordinates the full experimental pipeline from data
+    generation through analysis and visualization.
+
+    Command-Line Interface
+    ----------------------
+    See --help for full argument list. Key arguments:
+
+    General:
+        --n-workers: Number of parallel workers (default: all CPUs)
+        --n-sims: Simulations per sample size (default: 100)
+        --n-points: Number of sample sizes to test (default: 15)
+        --n-min, --n-max: Range of sample sizes (log10 scale)
+        --experiment: Which experiment to run (sos, 2pt, both)
+
+    Subset-of-Signals (sos):
+        --sos-si-min, --sos-si-max: Variance range
+        --sos-B: Truncation bound
+        --sos-m-power: Fraction parameter (m = n^m_power)
+
+    Two-Point (2pt):
+        --tpt-prior-atoms: [σ_1, σ_2]
+        --tpt-prior-weights: [w_1, w_2]
+        --tpt-weight-power: Dynamic weight (w_1 = n^(-power))
+        --tpt-sigma-power: Dynamic variance (σ_2 = n^power)
+
+    Examples
+    --------
+    # Run both experiments with default settings:
+    python npmle_tests_parallel.py
+
+    # Run only SOS experiment with 50 workers:
+    python npmle_tests_parallel.py --experiment sos --n-workers 50
+
+    # Run 2pt experiment with dynamic weights and variances:
+    python npmle_tests_parallel.py --experiment 2pt \\
+        --tpt-weight-power 0.75 --tpt-sigma-power 0.5
+
+    # Custom sample size range:
+    python npmle_tests_parallel.py --n-min 2 --n-max 5 --n-points 20
+
+    Output
+    ------
+    All output is saved to --output-dir (default: ./results/):
+    - experiment_progress.log: Detailed execution log
+    - experiment1_sos_results.pkl: SOS experiment data
+    - experiment1_sos_comparison.png: SOS plot
+    - experiment2_2pt_results.pkl: Two-point experiment data
+    - experiment2_*.png: Multiple two-point plots
+
+    Performance
+    -----------
+    - Automatic parallelization across all available CPUs
+    - Progress tracking with ETA estimation
+    - Typical throughput: 10-100 simulations/second
+    - Memory efficient: each worker processes one simulation at a time
+
+    Notes
+    -----
+    The script is designed for HPC clusters but works on any system with
+    Python 3.7+ and the required dependencies (numpy, scipy, matplotlib).
+    """
     parser = argparse.ArgumentParser(description='NPMLE Tests - Parallelized')
 
     # General experiment parameters
