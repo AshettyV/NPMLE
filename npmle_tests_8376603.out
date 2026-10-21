@@ -1,0 +1,58 @@
+
+==============================================================================
+[2026-01-24 14:50:23] NPMLE Tests - Starting Job
+==============================================================================
+[2026-01-24 14:50:23] Job ID: 8376603
+[2026-01-24 14:50:23] Node: node4500
+[2026-01-24 14:50:23] CPUs: 120
+[2026-01-24 14:50:23] GPUs: 
+[2026-01-24 14:50:23] Working directory: /orcd/home/002/shetty/Code/github_code/NPMLE
+[2026-01-24 14:50:23] Output directory: /home/shetty/orcd/scratch/npmle/results_8376603
+[2026-01-24 14:50:23] Log file: /home/shetty/orcd/scratch/npmle/results_8376603/logs/experiment.log
+[2026-01-24 14:50:23] STATUS: INITIALIZING
+[2026-01-24 14:50:23] Created symlink: /home/shetty/orcd/scratch/npmle/latest -> /home/shetty/orcd/scratch/npmle/results_8376603
+
+==============================================================================
+[2026-01-24 14:50:23] Loading Modules
+==============================================================================
+[2026-01-24 14:50:23] STATUS: LOADING_MODULES
+[2026-01-24 14:50:23] Activating conda environment: trial_env
+
+==============================================================================
+[2026-01-24 14:50:23] Environment Info
+==============================================================================
+[2026-01-24 14:50:23] Python version: Python 3.6.8
+[2026-01-24 14:50:23] NumPy version: 1.14.3
+
+==============================================================================
+[2026-01-24 14:50:23] Starting NPMLE Experiment
+==============================================================================
+[2026-01-24 14:50:23] Configuration:
+[2026-01-24 14:50:23]   n-workers: 120
+[2026-01-24 14:50:23]   n-sims: 100
+[2026-01-24 14:50:23]   n-points: 15
+[2026-01-24 14:50:23]   n-min: 2 (10^2 = 100)
+[2026-01-24 14:50:23]   n-max: 5 (10^5 = 100000)
+[2026-01-24 14:50:23]   experiment: both
+[2026-01-24 14:50:23] STATUS: RUNNING_EXPERIMENT
+/var/spool/slurmd/job8376603/slurm_script: line 161: python: command not found
+
+==============================================================================
+[2026-01-24 14:50:23] Job Completed
+==============================================================================
+[2026-01-24 14:50:23] Exit code: 127
+[2026-01-24 14:50:23] Duration: 0h 0m 0s
+[2026-01-24 14:50:23] STATUS: COMPLETED_WITH_ERRORS (exit code: 127)
+[2026-01-24 14:50:23] Experiment completed with errors. Check logs for details.
+[2026-01-24 14:50:23] 
+[2026-01-24 14:50:23] Output files:
+total 0
+drwxrwxr-x 2 shetty shetty 83 Jan 24 14:50 logs
+[2026-01-24 14:50:23] 
+[2026-01-24 14:50:23] ==============================================
+[2026-01-24 14:50:23] To monitor this experiment:
+[2026-01-24 14:50:23]   View status:    cat /home/shetty/orcd/scratch/npmle/results_8376603/logs/status.txt
+[2026-01-24 14:50:23]   Tail logs:      tail -f /home/shetty/orcd/scratch/npmle/results_8376603/logs/experiment.log
+[2026-01-24 14:50:23]   View resources: cat /home/shetty/orcd/scratch/npmle/results_8376603/logs/resources.log
+[2026-01-24 14:50:23]   Latest results: ls -la /home/shetty/orcd/scratch/npmle/latest/
+[2026-01-24 14:50:24] ==============================================

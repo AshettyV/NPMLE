@@ -1,0 +1,59 @@
+
+==============================================================================
+[2026-01-24 14:52:21] NPMLE Tests - Starting Job
+==============================================================================
+[2026-01-24 14:52:21] Job ID: 8376621
+[2026-01-24 14:52:21] Node: node4500
+[2026-01-24 14:52:21] CPUs: 120
+[2026-01-24 14:52:21] GPUs: 
+[2026-01-24 14:52:21] Working directory: /orcd/home/002/shetty/Code/github_code/NPMLE
+[2026-01-24 14:52:21] Output directory: /home/shetty/orcd/scratch/npmle/results_8376621
+[2026-01-24 14:52:21] Log file: /home/shetty/orcd/scratch/npmle/results_8376621/logs/experiment.log
+[2026-01-24 14:52:21] STATUS: INITIALIZING
+[2026-01-24 14:52:21] Created symlink: /home/shetty/orcd/scratch/npmle/latest -> /home/shetty/orcd/scratch/npmle/results_8376621
+
+==============================================================================
+[2026-01-24 14:52:21] Loading Modules
+==============================================================================
+[2026-01-24 14:52:21] STATUS: LOADING_MODULES
+[2026-01-24 14:52:21] Activating conda environment: trial_env
+/var/spool/slurmd/job8376621/slurm_script: line 106: pip: command not found
+
+==============================================================================
+[2026-01-24 14:52:21] Environment Info
+==============================================================================
+[2026-01-24 14:52:21] Python version: Python 3.6.8
+[2026-01-24 14:52:21] NumPy version: 1.14.3
+
+==============================================================================
+[2026-01-24 14:52:21] Starting NPMLE Experiment
+==============================================================================
+[2026-01-24 14:52:21] Configuration:
+[2026-01-24 14:52:21]   n-workers: 120
+[2026-01-24 14:52:21]   n-sims: 100
+[2026-01-24 14:52:21]   n-points: 15
+[2026-01-24 14:52:21]   n-min: 2 (10^2 = 100)
+[2026-01-24 14:52:21]   n-max: 5 (10^5 = 100000)
+[2026-01-24 14:52:21]   experiment: both
+[2026-01-24 14:52:21] STATUS: RUNNING_EXPERIMENT
+/var/spool/slurmd/job8376621/slurm_script: line 162: python: command not found
+
+==============================================================================
+[2026-01-24 14:52:21] Job Completed
+==============================================================================
+[2026-01-24 14:52:21] Exit code: 127
+[2026-01-24 14:52:21] Duration: 0h 0m 0s
+[2026-01-24 14:52:21] STATUS: COMPLETED_WITH_ERRORS (exit code: 127)
+[2026-01-24 14:52:21] Experiment completed with errors. Check logs for details.
+[2026-01-24 14:52:21] 
+[2026-01-24 14:52:21] Output files:
+total 0
+drwxrwxr-x 2 shetty shetty 83 Jan 24 14:52 logs
+[2026-01-24 14:52:21] 
+[2026-01-24 14:52:21] ==============================================
+[2026-01-24 14:52:21] To monitor this experiment:
+[2026-01-24 14:52:21]   View status:    cat /home/shetty/orcd/scratch/npmle/results_8376621/logs/status.txt
+[2026-01-24 14:52:21]   Tail logs:      tail -f /home/shetty/orcd/scratch/npmle/results_8376621/logs/experiment.log
+[2026-01-24 14:52:21]   View resources: cat /home/shetty/orcd/scratch/npmle/results_8376621/logs/resources.log
+[2026-01-24 14:52:21]   Latest results: ls -la /home/shetty/orcd/scratch/npmle/latest/
+[2026-01-24 14:52:21] ==============================================

@@ -1,0 +1,4 @@
+/var/spool/slurmd/job8376621/slurm_script: line 105: conda: command not found
+/var/spool/slurmd/job8376621/slurm_script: line 57: 790517 Terminated              ( while true; do
+    sleep 300; log_resources;
+done )

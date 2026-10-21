@@ -1092,11 +1092,11 @@ def main():
                         help='Two-point: prior weights (default: 0.01 0.99)')
     parser.add_argument('--tpt-si-min', type=float, default=0.5,
                         help='Two-point: minimum sigma for NPMLE (default: 0.5)')
-    parser.add_argument('--tpt-si-max', type=float, default=100.0,
+    parser.add_argument('--tpt-si-max', type=float, default=100000.0,
                         help='Two-point: maximum sigma for NPMLE (default: 100.0)')
     parser.add_argument('--tpt-weight-power', type=float, default=0.75,
                         help='Two-point: power of n for dynamic weights. If > 0: w1=n^(-power), w2=1-w1. If 0: use fixed weights (default: 0)')
-    parser.add_argument('--tpt-sigma-power', type=float, default=0.0,
+    parser.add_argument('--tpt-sigma-power', type=float, default=0.5,
                         help='Two-point: power of n for dynamic variance. If > 0: sigma_1=fixed, sigma_2=n^(power). If 0: use fixed atoms (default: 0)')
     parser.add_argument('--tpt-B', type=float, default=10.0,
                         help='Two-point: truncation bound B for truncated mean estimator (default: 10.0)')
